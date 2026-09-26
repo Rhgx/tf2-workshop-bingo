@@ -1,0 +1,58 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <meta name="theme-color" content="#71392e" />
+    <meta name="description" content="Build a bingo card from Steam Workshop items." />
+    <title>TF2 Workshop Bingo</title>
+  </head>
+  <body>
+    <div class="app-shell">
+      <aside class="loadout" aria-label="Items">
+        <form class="add-row" id="add-form">
+          <input
+            id="link-input"
+            type="text"
+            spellcheck="false"
+            autocomplete="off"
+            placeholder="Paste Workshop links"
+            aria-label="Steam Workshop links"
+          />
+          <button class="tf-button icon-button" type="submit" aria-label="Add" title="Add">
+            <img src="ui/glyphs/create.png" alt="" />
+          </button>
+        </form>
+        <p class="status" id="status" role="status" aria-live="polite"></p>
+        <ol class="item-list" id="item-list"></ol>
+        <p class="empty-hint" id="empty-hint">Ctrl+V anywhere, or drop links on a square.</p>
+        <div class="loadout-foot">
+          <span class="count" id="item-count"></span>
+          <button class="tf-button icon-button" id="sound-button" type="button" aria-pressed="true" aria-label="Sound" title="Sound">
+            <img id="sound-icon" src="ui/glyphs/commentary.png" alt="" />
+          </button>
+          <button class="tf-button icon-button" id="clear-button" type="button" aria-label="Clear board" title="Clear board">
+            <img src="ui/glyphs/workshop_delete.png" alt="" />
+          </button>
+        </div>
+      </aside>
+
+      <main class="board">
+        <div class="board-bar">
+          <button class="tf-button" id="archive-button" type="button" popovertarget="archive">Archive</button>
+          <div class="poster-toggle" id="poster-toggle" role="group" aria-label="Poster"></div>
+          <button class="tf-button" id="copy-button" type="button" disabled>Copy Markdown</button>
+          <button class="tf-button" id="download-button" type="button" disabled>Download PNG</button>
+        </div>
+        <div class="poster-stage" id="poster-stage">
+          <img id="poster-image" class="poster-image" alt="" draggable="false" />
+          <div class="bingo-grid" id="bingo-grid" aria-label="Bingo squares"></div>
+        </div>
+      </main>
+
+      <div class="archive-panel" id="archive" popover aria-label="Card archive"></div>
+      <div class="item-tooltip" id="tooltip" role="tooltip" hidden></div>
+    </div>
+    <script type="module" src="/src/main.ts"></script>
+  </body>
+</html>

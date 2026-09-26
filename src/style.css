@@ -1,0 +1,252 @@
+@font-face {
+  font-family: "TF2 Build";
+  src: url("/ui/fonts/tf2build.ttf") format("truetype");
+  font-display: swap;
+}
+
+@font-face {
+  font-family: "TF2 Secondary";
+  src: url("/ui/fonts/tf2secondary.ttf") format("truetype");
+  font-display: swap;
+}
+
+:root {
+  font-family: "TF2 Secondary", Verdana, sans-serif;
+  color: #ebe2ca;
+  background: #1c1a19;
+  font-synthesis: none;
+  --tan: #ebe2ca;
+  --tan-muted: #b8aa92;
+  --ink: #3e3a35;
+  --gold: #f4d178;
+}
+
+* { box-sizing: border-box; }
+
+body {
+  min-width: 340px;
+  min-height: 100vh;
+  margin: 0;
+  background: #1c1a19 url("/ui/console/background_upward_widescreen.webp") center / cover fixed no-repeat;
+}
+
+button, input { font: inherit; }
+button { cursor: pointer; }
+[hidden] { display: none !important; }
+
+.app-shell {
+  display: grid;
+  grid-template-columns: 300px minmax(0, 1fr);
+  gap: 20px;
+  align-items: start;
+  width: min(1500px, 100%);
+  margin: 0 auto;
+  padding: 16px;
+}
+
+/* Buttons: TF2 main menu style, tan with dark ink, red on hover. */
+.tf-button {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 6px;
+  min-height: 34px;
+  padding: 2px 10px;
+  color: var(--ink);
+  background: none;
+  border: 8px solid transparent;
+  border-image: url("/ui/button_central.png") 32 fill / 8px;
+  font: 12px/1 "TF2 Build", sans-serif;
+  text-transform: uppercase;
+  white-space: nowrap;
+}
+.tf-button img { width: 16px; height: 16px; filter: brightness(.25); }
+.tf-button:hover:not(:disabled) { color: var(--tan); border-image-source: url("/ui/button_central_hover.png"); }
+.tf-button:hover:not(:disabled) img { filter: none; }
+.tf-button:active:not(:disabled), .tf-button[aria-pressed="true"] { border-image-source: url("/ui/button_central_depressed.png"); }
+.tf-button:disabled { cursor: default; opacity: .45; }
+.icon-button { width: 34px; padding: 0; }
+#sound-button[aria-pressed="false"] { opacity: .6; }
+:focus-visible { outline: 2px solid var(--gold); outline-offset: 2px; }
+
+/* Items panel */
+.loadout {
+  position: sticky;
+  top: 16px;
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+  max-height: calc(100vh - 32px);
+  padding: 12px;
+  border: 12px solid transparent;
+  border-image: url("/ui/button_holder_central.png") 32 fill / 12px;
+}
+
+.add-row { display: flex; gap: 6px; }
+.add-row input {
+  flex: 1;
+  min-width: 0;
+  height: 34px;
+  padding: 0 10px;
+  color: var(--tan);
+  background: #242221;
+  border: 1px solid #625a50;
+  border-radius: 4px;
+  outline: 0;
+  font-size: 13px;
+}
+.add-row input::placeholder { color: #8f8372; }
+.add-row input:focus { border-color: #d8964d; box-shadow: 0 0 0 1px #d8964d; }
+.add-row.is-loading input {
+  background: repeating-linear-gradient(-45deg, #242221 0 10px, #2e2b29 10px 20px) 0 0 / 28px 28px;
+  animation: loading 0.6s linear infinite;
+}
+@keyframes loading { to { background-position: 28px 0; } }
+
+.status { margin: 0; color: var(--tan-muted); font-size: 12px; line-height: 1.4; }
+.status:empty { display: none; }
+.status.success { color: #c7d49b; }
+.status.error { color: #efb9a3; }
+.text-button { padding: 0; color: var(--gold); background: none; border: 0; text-decoration: underline; text-underline-offset: 2px; }
+
+.item-list {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  min-height: 0;
+  margin: 0;
+  padding: 0;
+  overflow-y: auto;
+  list-style: none;
+  scrollbar-color: #625a50 transparent;
+}
+/* Item panels use the backpack borders from clientscheme.res: 24px source corners drawn at ~8-11px. */
+.item-row {
+  display: grid;
+  grid-template-columns: 40px minmax(0, 1fr) 24px;
+  align-items: center;
+  gap: 8px;
+  padding: 5px;
+  border-image: url("/ui/backpack/rect.png") 24 fill / 8px;
+  cursor: grab;
+}
+.item-row:hover { border-image-source: url("/ui/backpack/rect_mouseover.png"); }
+.item-row.is-drag-over { border-image-source: url("/ui/backpack/rect_mouseover.png"); }
+.item-row.is-drag-source > * { visibility: hidden; }
+.item-row > img { width: 40px; height: 40px; object-fit: cover; border-radius: 2px; }
+.item-row a { display: flex; flex-direction: column; gap: 2px; min-width: 0; color: var(--tan); text-decoration: none; }
+.item-row strong, .item-row span { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.item-row strong { font: 11px/1.2 "TF2 Build", sans-serif; }
+.item-row span { color: var(--tan-muted); font-size: 11px; }
+.item-row span:empty { display: none; }
+.item-row a:hover strong { color: var(--gold); }
+.remove-button { display: grid; place-items: center; width: 24px; height: 24px; padding: 0; background: none; border: 0; border-radius: 3px; opacity: .5; }
+.remove-button img { width: 12px; height: 12px; }
+.remove-button:hover { background: #91493b; opacity: 1; }
+
+.empty-hint { margin: 0; color: #8f8372; font-size: 12px; }
+
+.loadout-foot { display: flex; align-items: center; gap: 6px; }
+.count { margin-right: auto; color: var(--tan-muted); font: 13px "TF2 Build", sans-serif; }
+.count b { color: #efb471; font-weight: 400; }
+
+/* Board */
+.board { display: flex; flex-direction: column; align-items: center; gap: 10px; min-width: 0; }
+.board-bar { display: flex; flex-wrap: wrap; justify-content: center; align-items: center; gap: 6px; }
+.poster-toggle { display: flex; gap: 2px; margin-right: 8px; }
+.poster-stage {
+  position: relative;
+  /* Fit the whole card in the viewport. */
+  width: min(100%, calc((100vh - 92px) * var(--ratio, 0.876)));
+  min-width: 300px;
+  aspect-ratio: var(--ratio, 0.876);
+  box-shadow: 0 5px 22px rgb(0 0 0 / 42%);
+}
+.poster-image { position: absolute; inset: 0; width: 100%; height: 100%; user-select: none; }
+.bingo-grid { position: absolute; inset: 0; }
+.bingo-slot { position: absolute; overflow: hidden; padding: 0; background: transparent; border: 0; cursor: pointer; }
+.bingo-slot.is-filled { cursor: grab; touch-action: none; }
+.bingo-slot img { display: block; width: 100%; height: 100%; object-fit: cover; pointer-events: none; }
+.bingo-slot:focus-visible { outline-offset: -3px; }
+/* Backpack borders as outlines over the poster: BackpackItemMouseOverBorder for hover/drop, selected tan. */
+.bingo-slot::after { position: absolute; inset: 0; content: ""; border: 8px solid transparent; pointer-events: none; }
+.bingo-slot:hover::after, .bingo-slot.is-hot::after, .bingo-slot.is-drag-over::after { border-image: url("/ui/backpack/rect_mouseover.png") 24 / 8px; }
+.bingo-slot.is-selected::after { border-image: url("/ui/backpack/rect_selected.png") 24 / 8px; }
+.bingo-slot.is-drag-source img { visibility: hidden; }
+
+/* The picked-up item panel that follows the cursor (m_pMouseDragItemPanel). */
+.drag-item {
+  position: fixed;
+  top: 0;
+  left: 0;
+  z-index: 10;
+  border: 8px solid transparent;
+  border-image: url("/ui/backpack/rect_mouseover.png") 24 fill / 8px;
+  box-shadow: 0 6px 18px rgb(0 0 0 / 50%);
+  pointer-events: none;
+}
+.drag-item img { display: block; width: 100%; height: 100%; object-fit: cover; border-radius: 2px; }
+body.is-dragging, body.is-dragging * { cursor: grabbing !important; user-select: none; }
+.bingo-slot.image-missing { background: repeating-linear-gradient(135deg, rgb(151 65 47 / 45%) 0 8px, transparent 8px 16px); }
+
+/* Card archive popover: the texture is the container, so no background of its own. */
+.archive-panel {
+  width: min(640px, calc(100vw - 24px));
+  max-height: calc(100vh - 48px);
+  padding: 12px;
+  overflow-y: auto;
+  color: var(--tan);
+  background: none;
+  border: 12px solid transparent;
+  border-image: url("/ui/button_holder_central.png") 32 fill / 12px;
+}
+.archive-panel:popover-open { display: flex; flex-direction: column; gap: 16px; }
+.archive-panel::backdrop { background: rgb(0 0 0 / 45%); }
+.archive-panel h2 { margin: 0 0 8px; color: var(--tan-muted); font: 13px "TF2 Build", sans-serif; letter-spacing: .04em; text-transform: uppercase; }
+.archive-cards { display: grid; grid-template-columns: repeat(auto-fill, minmax(140px, 1fr)); gap: 8px; }
+.archive-card {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  padding: 0;
+  color: var(--tan);
+  background: none;
+  border: 10px solid transparent;
+  border-image: url("/ui/backpack/rect.png") 24 fill / 10px;
+  font: 11px "TF2 Build", sans-serif;
+  text-transform: uppercase;
+}
+.archive-card:hover { border-image-source: url("/ui/backpack/rect_mouseover.png"); }
+.archive-card[aria-pressed="true"] { color: var(--ink); border-image-source: url("/ui/backpack/rect_selected.png"); }
+.archive-card img { display: block; width: 100%; aspect-ratio: 3448 / 3936; object-fit: cover; border-radius: 2px; }
+
+/* Item tooltip: LoadoutItemPopupBorder (button_holder_central) with the ItemFont and ItemAttrib colours. */
+.item-tooltip {
+  position: fixed;
+  top: 0;
+  left: 0;
+  z-index: 20;
+  min-width: 170px;
+  max-width: 300px;
+  padding: 6px 10px;
+  border: 9px solid transparent;
+  border-image: url("/ui/button_holder_central.png") 32 fill / 9px;
+  text-align: center;
+  pointer-events: none;
+}
+.item-tooltip p { margin: 0; font: 13px/1.35 "TF2 Secondary", Verdana, sans-serif; overflow-wrap: anywhere; }
+.item-tooltip .tip-name { margin-bottom: 3px; color: #ffd700; font: 16px/1.2 "TF2 Build", sans-serif; }
+.tip-level { color: #756b5e; }
+.tip-neutral { color: #ebe2ca; }
+.tip-positive { color: #99ccff; }
+
+@media (max-width: 860px) {
+  .app-shell { grid-template-columns: 1fr; padding: 10px; }
+  .loadout { position: static; max-height: none; }
+  .item-list { max-height: 40vh; }
+  .poster-stage { width: 100%; min-width: 0; }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .add-row.is-loading input { animation: none; }
+}

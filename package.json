@@ -1,0 +1,19 @@
+{
+  "name": "tf2-workshop-bingo",
+  "private": true,
+  "type": "module",
+  "packageManager": "pnpm@11.3.0",
+  "scripts": {
+    "dev": "vite --host 127.0.0.1",
+    "build": "tsc --noEmit && tsc --noEmit -p tsconfig.node.json && vite build",
+    "preview": "vite preview --host 127.0.0.1",
+    "check": "node --experimental-strip-types scripts/check-workshop-links.mjs"
+  },
+  "devDependencies": {
+    "@types/node": "^22.20.4",
+    "sharp": "^0.35.4",
+    "typescript": "^7.0.2",
+    "vite": "^8.3.0"
+  },
+  "version": "1.0.0"
+}
