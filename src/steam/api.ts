@@ -16,6 +16,7 @@ export async function fetchWorkshopItems(ids: string[]): Promise<WorkshopItem[]>
     headers: { "Content-Type": "application/x-www-form-urlencoded" },
     body,
   });
+  if (response.status === 429) throw new Error("Too many lookups. Wait a minute and try again.");
   if (!response.ok) throw new Error(`Steam lookup failed (HTTP ${response.status}).`);
 
   const payload: unknown = await response.json();

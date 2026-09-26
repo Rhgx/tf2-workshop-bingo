@@ -70,6 +70,8 @@ Every push to `main` builds the site and publishes it to GitHub Pages (`.github/
 
 The app gets item details through a small Cloudflare Worker in `worker/`, because the Workshop API doesn't allow cross-origin requests and uploader names need a Steam Web API key that must stay server-side. It has one route, `POST /workshop`: it forwards to `ISteamRemoteStorage/GetPublishedFileDetails` and adds a `names` map from one batched `ISteamUser/GetPlayerSummaries` call (edge-cached for a day). Thumbnails load straight from Steam's image CDN, which allows any origin.
 
+To stop it being used as a free Steam proxy, the worker only answers the site's origins (`https://rhgx.github.io` and local dev), accepts at most 100 numeric item IDs in a small body, and rate-limits each IP to about 20 requests a minute. On the free plan, running out of quota only stops the worker for the day; it never bills.
+
 Dev, `pnpm preview` and the Pages build all use the deployed worker. To run your own (the free tier is plenty):
 
 ```sh
@@ -79,7 +81,7 @@ pnpm dlx wrangler secret put STEAM_API_KEY    # from https://steamcommunity.com/
 pnpm dlx wrangler deploy                      # prints https://tf2-workshop-bingo.<you>.workers.dev
 ```
 
-Then build with `VITE_STEAM_PROXY` set to that URL. Without the key, items still load, just without uploader names.
+Add your site's origin to `allowedOrigin` in `worker/index.ts` first, then build with `VITE_STEAM_PROXY` set to that URL. Without the key, items still load, just without uploader names.
 
 ## Known limitations
 
