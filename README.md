@@ -15,7 +15,7 @@ pnpm install
 pnpm dev       # http://127.0.0.1:5173
 pnpm check     # link parsing, Markdown and tag checks
 pnpm build     # type-check and build to dist/
-pnpm preview   # serve the build (same Steam proxies as dev)
+pnpm preview   # serve the build
 ```
 
 Inside a pnpm workspace, add `--ignore-workspace` to each command.
@@ -39,16 +39,16 @@ src/
   style.css
   data/
     cards.ts       card registry: posters and slot rectangles
-    storage.ts     localStorage: items per card, uploader name cache
+    storage.ts     localStorage: items per card
   steam/
-    api.ts         Steam requests (item details, profile names)
+    api.ts         Steam requests (item details and uploader names, via worker/)
     workshop.ts    link parsing, Markdown export, tag descriptions (pure, covered by `pnpm check`)
   ui/
     dom.ts         element lookup helper
     export.ts      full-size PNG rendering
     sound.ts       TF2 UI sounds and mute
     tooltip.ts     TF2-style item tooltip
-worker/            Cloudflare Worker: Steam proxy for the deployed site
+worker/            Cloudflare Worker: Steam proxy holding the Steam Web API key
 scripts/
   check-workshop-links.mjs   `pnpm check`
   make-badges.py             regenerates docs/badges/ (TF2 tooltip-style README badges)
@@ -68,27 +68,22 @@ Cards live in `src/data/cards.ts`, newest event first. The newest event gets qui
 
 Every push to `main` builds the site and publishes it to GitHub Pages (`.github/workflows/ci.yml`). The build uses relative URLs, so it works from any path.
 
-Steam's Workshop API and profile pages don't allow cross-origin requests, so the app reaches them through a proxy (thumbnails load straight from Steam's image CDN, which does):
+The app gets item details through a small Cloudflare Worker in `worker/`, because the Workshop API doesn't allow cross-origin requests and uploader names need a Steam Web API key that must stay server-side. It has one route, `POST /workshop`: it forwards to `ISteamRemoteStorage/GetPublishedFileDetails` and adds a `names` map from one batched `ISteamUser/GetPlayerSummaries` call (edge-cached for a day). Thumbnails load straight from Steam's image CDN, which allows any origin.
 
-| Route | Proxies to | Used for |
-| --- | --- | --- |
-| `workshop` | `api.steampowered.com/ISteamRemoteStorage/GetPublishedFileDetails/v1/` | Titles, preview images, tags (one batched call) |
-| `profile/<id>/` | `steamcommunity.com/profiles/<id>/?xml=1` | Uploader names |
-
-In dev and `pnpm preview`, Vite serves them under `api/` (`vite.config.ts`). For the static site, `worker/` is a Cloudflare Worker with the same two routes (free tier is plenty):
+Dev, `pnpm preview` and the Pages build all use the deployed worker. To run your own (the free tier is plenty):
 
 ```sh
 cd worker
 pnpm dlx wrangler login
-pnpm dlx wrangler deploy     # prints https://tf2-workshop-bingo.<you>.workers.dev
+pnpm dlx wrangler secret put STEAM_API_KEY    # from https://steamcommunity.com/dev/apikey
+pnpm dlx wrangler deploy                      # prints https://tf2-workshop-bingo.<you>.workers.dev
 ```
 
-Then set the repository variable `STEAM_PROXY` to that URL (Settings, Secrets and variables, Actions, Variables) and re-run the workflow. The build reads it as `VITE_STEAM_PROXY`.
+Then build with `VITE_STEAM_PROXY` set to that URL. Without the key, items still load, just without uploader names.
 
 ## Known limitations
 
-- **One creator per item.** The Steam API only reports the uploader. Co-creators only appear on each item's Workshop page, and scraping those from the browser gets the IP rate-limited by Steam's CDN. Doing it properly needs a server-side proxy with a Steam Web API key and a shared cache; the shelved scraper and the reasoning are in `src/steam/api.ts`.
-- **Name lookups are throttled.** Uploader names are fetched one at a time, cached permanently per Steam ID, and paused for a minute if Steam starts refusing requests.
+- **One creator per item.** The Steam API only reports the uploader, even with a key. Co-creators only appear on each item's Workshop page, so showing them means scraping those pages in the worker; the shelved scraper and the reasoning are in `src/steam/api.ts`.
 - **Saved data is per browser.** Nothing is uploaded or synced.
 
 ## Credits

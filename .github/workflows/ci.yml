@@ -23,9 +23,6 @@ jobs:
       - run: pnpm install --frozen-lockfile
       - run: pnpm check
       - run: pnpm build
-        env:
-          # URL of the deployed worker/ (repository variable). Without it, Steam lookups only work in dev.
-          VITE_STEAM_PROXY: ${{ vars.STEAM_PROXY }}
       - uses: actions/upload-pages-artifact@v4
         if: github.event_name != 'pull_request'
         with:

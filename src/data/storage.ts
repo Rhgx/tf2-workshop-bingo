@@ -27,22 +27,3 @@ export function loadSaved(): Record<string, Slots> {
 }
 
 export const saveAll = (saved: Record<string, Slots>) => localStorage.setItem(storageKey, JSON.stringify(saved));
-
-const namesKey = "bingo-creator-names";
-
-/**
- * Steam ID to profile name ("" when the profile has none to give), kept apart from the cards so an
- * uploader is looked up once no matter how many items or cards they appear on.
- * Entries never expire; add a timestamp if renamed profiles start to matter.
- */
-export const nameCache: Record<string, string> = (() => {
-  try {
-    const cached: unknown = JSON.parse(localStorage.getItem(namesKey) ?? "null");
-    if (cached && typeof cached === "object" && !Array.isArray(cached)) return cached as Record<string, string>;
-  } catch {
-    // Corrupt storage: start empty.
-  }
-  return {};
-})();
-
-export const saveNameCache = () => localStorage.setItem(namesKey, JSON.stringify(nameCache));

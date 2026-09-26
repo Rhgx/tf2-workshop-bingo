@@ -1,7 +1,7 @@
 import "./style.css";
 import { cards, cardsByEvent, currentEvent, findCard, type Card } from "./data/cards";
-import { loadSaved, nameCache, saveAll, saveNameCache, type Slots } from "./data/storage";
-import { fetchProfileName, fetchWorkshopItems } from "./steam/api";
+import { loadSaved, saveAll, type Slots } from "./data/storage";
+import { fetchWorkshopItems } from "./steam/api";
 import { parseWorkshopLinks, toMarkdown, type WorkshopItem } from "./steam/workshop";
 import { $ } from "./ui/dom";
 import { renderCardPng, saveBlob } from "./ui/export";
@@ -52,65 +52,14 @@ function fail(message: string) {
   play("error");
 }
 
-// Creator names. The Steam API only gives the uploader's Steam ID, so the name comes from their public
-// profile XML: one request per uploader, cached for good, sent one at a time. steamcommunity.com sits
-// behind Akamai, which answers 403 for a while after a burst, so a refusal pauses and retries.
-const nameQueue: string[] = [];
-const lookupGapMs = 800;
-const blockedRetryMs = 60_000;
-let isLookingUp = false;
-
-const sleep = (ms: number) => new Promise((resolve) => window.setTimeout(resolve, ms));
-
-async function runNameQueue() {
-  if (isLookingUp) return;
-  isLookingUp = true;
-  while (nameQueue.length) {
-    const steamId = nameQueue[0];
-    const name = await fetchProfileName(steamId);
-    if (name === "blocked") {
-      setStatus("Steam is rate-limiting name lookups; retrying in a minute.");
-      await sleep(blockedRetryMs);
-      continue;
-    }
-    nameQueue.shift();
-    nameCache[steamId] = name;
-    saveNameCache();
-    // One uploader can have items on several cards.
-    for (const item of Object.values(saved).flat()) {
-      if (item?.creatorId === steamId && name) item.creatorName = name;
-    }
-    save();
-    renderList();
-    if (status.textContent?.startsWith("Steam is rate-limiting")) setStatus("");
-    await sleep(lookupGapMs);
-  }
-  isLookingUp = false;
-}
-
-function resolveCreator(item: WorkshopItem) {
-  if (!item.creatorId || item.creatorName) return;
-  const cached = nameCache[item.creatorId];
-  if (cached !== undefined) {
-    if (!cached) return;
-    item.creatorName = cached;
-    save();
-    renderList();
-    return;
-  }
-  if (nameQueue.includes(item.creatorId)) return;
-  nameQueue.push(item.creatorId);
-  runNameQueue();
-}
-
-/** Fetches Steam details for stored items that only have an ID (or predate tags). */
-const needsDetails = (item: WorkshopItem | null): item is WorkshopItem => Boolean(item && (!item.imageUrl || !item.tags));
+/** Fetches Steam details for stored items that only have an ID, or predate tags or uploader names. */
+const needsDetails = (item: WorkshopItem | null): item is WorkshopItem =>
+  Boolean(item && (!item.imageUrl || !item.tags || (item.creatorId && !item.creatorName)));
 
 async function hydrate(target = card) {
   const list = saved[target.id];
   const ids = list.flatMap((item) => needsDetails(item) ? [item.id] : []);
-  const resolveAll = () => list.forEach((item) => item && resolveCreator(item));
-  if (!ids.length) return resolveAll();
+  if (!ids.length) return;
   pending++;
   setStatus(`Loading ${plural(ids.length, "item")}…`);
   render();
@@ -118,11 +67,11 @@ async function hydrate(target = card) {
     const byId = new Map((await fetchWorkshopItems(ids)).map((item) => [item.id, item]));
     list.forEach((item, index) => {
       const fresh = needsDetails(item) && byId.get(item.id);
-      if (fresh) list[index] = { ...fresh, ...(item?.creatorName ? { creatorName: item.creatorName } : {}) };
+      // Keep a name we already have if Steam didn't send one this time.
+      if (fresh) list[index] = { creatorName: item.creatorName, ...fresh };
     });
     save();
     setStatus(ids.length > byId.size ? `${plural(ids.length - byId.size, "item")} not found or private.` : "");
-    resolveAll();
   } catch (error) {
     fail(error instanceof Error ? error.message : "Could not load this card.");
   } finally {
@@ -171,7 +120,6 @@ async function addLinks(text: string, start = selectedSlot ?? 0) {
     if (placed) play("added");
     if (!placed) fail(notes.join(" · ") || "Nothing added.");
     else setStatus(notes.length ? `Added ${placed} · ${notes.join(" · ")}` : "", notes.length ? "info" : "success");
-    loaded.forEach(resolveCreator);
   } catch (error) {
     fail(error instanceof Error ? error.message : "Could not load those items.");
   } finally {
@@ -597,12 +545,6 @@ copyButton.addEventListener("click", async () => {
 });
 
 downloadButton.addEventListener("click", downloadCard);
-
-// Names already stored on cards seed the cache, so they are never looked up again.
-for (const item of Object.values(saved).flat()) {
-  if (item?.creatorId && item.creatorName) nameCache[item.creatorId] ??= item.creatorName;
-}
-saveNameCache();
 
 renderSound();
 openCard(card);

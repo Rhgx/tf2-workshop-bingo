@@ -43,19 +43,5 @@ export default defineConfig({
   // Relative URLs so the build works from any path, e.g. GitHub Pages at /<repo>/.
   base: "./",
   plugins: [posterPreviews()],
-  server: {
-    host: "127.0.0.1",
-    proxy: {
-      "/api/workshop": {
-        target: "https://api.steampowered.com",
-        changeOrigin: true,
-        rewrite: () => "/ISteamRemoteStorage/GetPublishedFileDetails/v1/",
-      },
-      "/api/profile": {
-        target: "https://steamcommunity.com",
-        changeOrigin: true,
-        rewrite: (path) => path.replace(/^\/api\/profile/, "/profiles"),
-      },
-    },
-  },
+  server: { host: "127.0.0.1" },
 });

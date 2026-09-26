@@ -1,7 +1,7 @@
 import type { WorkshopItem } from "./workshop";
 
-/** The Steam proxy: the Vite server's `api/` routes, or the Cloudflare Worker in worker/ when deployed. */
-const proxy = import.meta.env.VITE_STEAM_PROXY || "api";
+/** The Steam proxy in worker/. Point VITE_STEAM_PROXY at your own deployment (or `wrangler dev`) to use another. */
+const proxy = import.meta.env.VITE_STEAM_PROXY || "https://tf2-workshop-bingo.rhgx.workers.dev";
 
 function isRecord(value: unknown): value is Record<string, unknown> {
   return typeof value === "object" && value !== null;
@@ -23,6 +23,9 @@ export async function fetchWorkshopItems(ids: string[]): Promise<WorkshopItem[]>
     throw new Error("Steam returned an unexpected response.");
   }
 
+  // The worker adds `names`: uploader persona names keyed by Steam ID.
+  const names = isRecord(payload.names) ? payload.names : {};
+
   return payload.response.publishedfiledetails.flatMap((detail): WorkshopItem[] => {
     if (!isRecord(detail) || typeof detail.publishedfileid !== "string" || !ids.includes(detail.publishedfileid)) return [];
     if (String(detail.result) !== "1" || typeof detail.preview_url !== "string") return [];
@@ -31,6 +34,7 @@ export async function fetchWorkshopItems(ids: string[]): Promise<WorkshopItem[]>
 
     const id = detail.publishedfileid;
     const creatorId = typeof detail.creator === "string" && /^\d{1,20}$/.test(detail.creator) ? detail.creator : undefined;
+    const creatorName = creatorId && typeof names[creatorId] === "string" ? names[creatorId] : undefined;
     const tags = Array.isArray(detail.tags)
       ? detail.tags.flatMap((tag) => isRecord(tag) && typeof tag.tag === "string" ? [tag.tag] : [])
       : [];
@@ -41,22 +45,9 @@ export async function fetchWorkshopItems(ids: string[]): Promise<WorkshopItem[]>
       imageUrl: preview.href,
       tags,
       ...(creatorId ? { creatorId } : {}),
+      ...(creatorName ? { creatorName } : {}),
     }];
   });
-}
-
-/** Profile name, "" if the profile has none to give, or "blocked" if Steam refused. */
-export async function fetchProfileName(steamId: string): Promise<string> {
-  try {
-    const response = await fetch(`${proxy}/profile/${steamId}/?xml=1`);
-    if (!response.ok) return "blocked";
-    const xml = new DOMParser().parseFromString(await response.text(), "text/xml");
-    if (xml.querySelector("profile")) return xml.querySelector("profile > steamID")?.textContent?.trim() ?? "";
-    // A missing or private profile answers <response><error>; anything else is an error page.
-    return xml.querySelector("response > error") ? "" : "blocked";
-  } catch {
-    return "blocked";
-  }
 }
 
 // Co-creators: shelved for now.
@@ -67,8 +58,8 @@ export async function fetchProfileName(steamId: string): Promise<string> {
 // steamcommunity.com/actions/ajaxresolveusers needs a logged-in session. From a browser those page
 // requests trip Akamai's rate limit (403 for the whole IP) almost immediately.
 //
-// Doing this properly needs a server-side proxy (e.g. a Cloudflare Worker) that holds a Steam Web API
-// key as a secret and caches pages and lookups for everyone. The scraper below worked; to bring it back,
+// worker/ now holds a Steam Web API key, which covers uploader names in bulk but still gives no co-creator
+// list, so this would mean scraping the pages there with edge caching. The scraper below worked; to bring it back,
 // add a `creators?: Array<{ name: string; profile: string }>` field to WorkshopItem, credit all of them
 // in toMarkdown, and proxy `item` to https://steamcommunity.com/sharedfiles/filedetails/.
 //
