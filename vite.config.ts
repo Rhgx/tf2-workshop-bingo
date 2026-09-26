@@ -51,11 +51,6 @@ export default defineConfig({
         changeOrigin: true,
         rewrite: () => "/ISteamRemoteStorage/GetPublishedFileDetails/v1/",
       },
-      "/api/preview": {
-        target: "https://images.steamusercontent.com",
-        changeOrigin: true,
-        rewrite: (path) => path.replace(/^\/api\/preview/, ""),
-      },
       "/api/profile": {
         target: "https://steamcommunity.com",
         changeOrigin: true,

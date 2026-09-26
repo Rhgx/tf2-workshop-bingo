@@ -16,7 +16,9 @@ const storageKey = "bingo-cards";
 /** Items per card ID. */
 export function loadSaved(): Record<string, Slots> {
   try {
-    const saved: unknown = JSON.parse(localStorage.getItem(storageKey) ?? "null");
+    // Thumbnails used to go through an `api/preview` proxy; they now load straight from Steam's CDN.
+    const stored = localStorage.getItem(storageKey)?.replace(/"\/?api\/preview\//g, '"https://images.steamusercontent.com/');
+    const saved: unknown = JSON.parse(stored ?? "null");
     if (saved && typeof saved === "object" && !Array.isArray(saved)) return saved as Record<string, Slots>;
   } catch {
     // Corrupt storage: start empty.

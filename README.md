@@ -48,6 +48,7 @@ src/
     export.ts      full-size PNG rendering
     sound.ts       TF2 UI sounds and mute
     tooltip.ts     TF2-style item tooltip
+worker/            Cloudflare Worker: Steam proxy for the deployed site
 scripts/
   check-workshop-links.mjs   `pnpm check`
   make-badges.py             regenerates docs/badges/ (TF2 tooltip-style README badges)
@@ -67,15 +68,22 @@ Cards live in `src/data/cards.ts`, newest event first. The newest event gets qui
 
 Every push to `main` builds the site and publishes it to GitHub Pages (`.github/workflows/ci.yml`). The build uses relative URLs, so it works from any path.
 
-The app calls Steam through same-origin proxies, because Steam does not allow cross-origin requests. The Vite dev and preview servers provide them (`vite.config.ts`). A static host like GitHub Pages cannot, so adding items only works there once these paths are served by something else (paths are relative to the page):
+Steam's Workshop API and profile pages don't allow cross-origin requests, so the app reaches them through a proxy (thumbnails load straight from Steam's image CDN, which does):
 
-| Path | Proxies to | Used for |
+| Route | Proxies to | Used for |
 | --- | --- | --- |
-| `/api/workshop` | `api.steampowered.com/ISteamRemoteStorage/GetPublishedFileDetails/v1/` | Titles, preview images, tags (one batched call) |
-| `/api/preview/*` | `images.steamusercontent.com/*` | Thumbnails (needed for PNG export) |
-| `/api/profile/*` | `steamcommunity.com/profiles/*` | Uploader names (`?xml=1`) |
+| `workshop` | `api.steampowered.com/ISteamRemoteStorage/GetPublishedFileDetails/v1/` | Titles, preview images, tags (one batched call) |
+| `profile/<id>/` | `steamcommunity.com/profiles/<id>/?xml=1` | Uploader names |
 
-A small serverless function (for example a Cloudflare Worker) covers all three.
+In dev and `pnpm preview`, Vite serves them under `api/` (`vite.config.ts`). For the static site, `worker/` is a Cloudflare Worker with the same two routes (free tier is plenty):
+
+```sh
+cd worker
+pnpm dlx wrangler login
+pnpm dlx wrangler deploy     # prints https://tf2-workshop-bingo.<you>.workers.dev
+```
+
+Then set the repository variable `STEAM_PROXY` to that URL (Settings, Secrets and variables, Actions, Variables) and re-run the workflow. The build reads it as `VITE_STEAM_PROXY`.
 
 ## Known limitations
 
@@ -85,4 +93,4 @@ A small serverless function (for example a Cloudflare Worker) covers all three.
 
 ## Credits
 
-Unofficial fan tool, not affiliated with Valve. Team Fortress 2 fonts, textures, icons and sounds are Valve's, extracted from the game files (`tf2_misc_dir.vpk`, `tf2_textures_dir.vpk`, `tf2_sound_misc_dir.vpk`). The Painter's Bingo posters are community artwork. Workshop items and thumbnails belong to their creators. The README badges follow [Devin's Badges](https://github.com/intergrav/devins-badges) and use icons from [Simple Icons](https://simpleicons.org).
+Unofficial fan tool, not affiliated with Valve. Team Fortress 2 fonts, textures, icons and sounds are Valve's, extracted from the game files (`tf2_misc_dir.vpk`, `tf2_textures_dir.vpk`, `tf2_sound_misc_dir.vpk`). The Painter's Bingo cards are made by [TF2 Painter's Workshop](https://steamcommunity.com/groups/PaintersWorkshop). Workshop items and thumbnails belong to their creators. The README badges follow [Devin's Badges](https://github.com/intergrav/devins-badges) and use icons from [Simple Icons](https://simpleicons.org).

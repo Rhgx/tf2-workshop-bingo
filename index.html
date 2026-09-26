@@ -29,7 +29,11 @@
         <div class="loadout-foot">
           <span class="count" id="item-count"></span>
           <button class="tf-button icon-button" id="sound-button" type="button" aria-pressed="true" aria-label="Sound" title="Sound">
-            <img id="sound-icon" src="ui/glyphs/commentary.png" alt="" />
+            <svg viewBox="0 0 24 24" aria-hidden="true">
+              <path class="speaker" d="M3 9h4l5-4.5v15L7 15H3z" />
+              <path class="waves" d="M15.5 8.5a5 5 0 0 1 0 7M18.5 5.5a9.5 9.5 0 0 1 0 13" />
+              <path class="cross" d="M15.5 9l6 6m0-6l-6 6" />
+            </svg>
           </button>
           <button class="tf-button icon-button" id="clear-button" type="button" aria-label="Clear board" title="Clear board">
             <img src="ui/glyphs/workshop_delete.png" alt="" />
@@ -49,6 +53,11 @@
           <div class="bingo-grid" id="bingo-grid" aria-label="Bingo squares"></div>
         </div>
       </main>
+
+      <footer class="site-foot">
+        Bingo cards by <a href="https://steamcommunity.com/groups/PaintersWorkshop">TF2 Painter's Workshop</a>
+        · Made by <a href="https://github.com/Rhgx">Rocks</a>
+      </footer>
 
       <div class="archive-panel" id="archive" popover aria-label="Card archive"></div>
       <div class="item-tooltip" id="tooltip" role="tooltip" hidden></div>

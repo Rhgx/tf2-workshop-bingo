@@ -1,5 +1,8 @@
 import type { WorkshopItem } from "./workshop";
 
+/** The Steam proxy: the Vite server's `api/` routes, or the Cloudflare Worker in worker/ when deployed. */
+const proxy = import.meta.env.VITE_STEAM_PROXY || "api";
+
 function isRecord(value: unknown): value is Record<string, unknown> {
   return typeof value === "object" && value !== null;
 }
@@ -8,7 +11,7 @@ export async function fetchWorkshopItems(ids: string[]): Promise<WorkshopItem[]>
   const body = new URLSearchParams({ itemcount: String(ids.length) });
   ids.forEach((id, index) => body.set(`publishedfileids[${index}]`, id));
 
-  const response = await fetch("api/workshop", {
+  const response = await fetch(`${proxy}/workshop`, {
     method: "POST",
     headers: { "Content-Type": "application/x-www-form-urlencoded" },
     body,
@@ -34,7 +37,8 @@ export async function fetchWorkshopItems(ids: string[]): Promise<WorkshopItem[]>
     return [{
       id,
       title: typeof detail.title === "string" && detail.title.trim() ? detail.title.trim() : `Workshop item ${id}`,
-      imageUrl: `api/preview${preview.pathname}${preview.search}`,
+      // Steam's image CDN allows any origin, so thumbnails load directly (and stay usable in canvas).
+      imageUrl: preview.href,
       tags,
       ...(creatorId ? { creatorId } : {}),
     }];
@@ -44,7 +48,7 @@ export async function fetchWorkshopItems(ids: string[]): Promise<WorkshopItem[]>
 /** Profile name, "" if the profile has none to give, or "blocked" if Steam refused. */
 export async function fetchProfileName(steamId: string): Promise<string> {
   try {
-    const response = await fetch(`api/profile/${steamId}/?xml=1`);
+    const response = await fetch(`${proxy}/profile/${steamId}/?xml=1`);
     if (!response.ok) return "blocked";
     const xml = new DOMParser().parseFromString(await response.text(), "text/xml");
     if (xml.querySelector("profile")) return xml.querySelector("profile > steamID")?.textContent?.trim() ?? "";
@@ -66,7 +70,7 @@ export async function fetchProfileName(steamId: string): Promise<string> {
 // Doing this properly needs a server-side proxy (e.g. a Cloudflare Worker) that holds a Steam Web API
 // key as a secret and caches pages and lookups for everyone. The scraper below worked; to bring it back,
 // add a `creators?: Array<{ name: string; profile: string }>` field to WorkshopItem, credit all of them
-// in toMarkdown, and proxy `/api/item` to https://steamcommunity.com/sharedfiles/filedetails/.
+// in toMarkdown, and proxy `item` to https://steamcommunity.com/sharedfiles/filedetails/.
 //
 // async function fetchCreators(id: string): Promise<Array<{ name: string; profile: string }> | "blocked"> {
 //   try {

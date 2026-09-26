@@ -13,6 +13,7 @@ export function saveBlob(blob: Blob, filename: string) {
 function loadImage(src: string): Promise<HTMLImageElement> {
   return new Promise((resolve, reject) => {
     const image = new Image();
+    image.crossOrigin = "anonymous";
     image.onload = () => resolve(image);
     image.onerror = () => reject(new Error("The poster could not be loaded. Check your connection and try again."));
     image.src = src;

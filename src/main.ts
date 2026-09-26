@@ -15,7 +15,6 @@ const itemList = $("#item-list");
 const emptyHint = $("#empty-hint");
 const itemCount = $("#item-count");
 const soundButton = $<HTMLButtonElement>("#sound-button");
-const soundIcon = $<HTMLImageElement>("#sound-icon");
 const clearButton = $<HTMLButtonElement>("#clear-button");
 const copyButton = $<HTMLButtonElement>("#copy-button");
 const downloadButton = $<HTMLButtonElement>("#download-button");
@@ -469,7 +468,6 @@ function renderArchive() {
 }
 
 function renderSound() {
-  soundIcon.src = isMuted() ? "ui/glyphs/muted.png" : "ui/glyphs/commentary.png";
   soundButton.setAttribute("aria-pressed", String(!isMuted()));
 }
 
