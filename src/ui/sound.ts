@@ -30,7 +30,44 @@ export const isMuted = () => muted;
 export function toggleMuted() {
   muted = !muted;
   localStorage.setItem("bingo-muted", muted ? "1" : "0");
+  music.muted = muted;
 }
+
+// Menu music like GameUI: one random sound/ui/gamestartup*.mp3 per launch (holiday/gamestartup_halloween*.mp3
+// around Halloween), played once, then silence. Browsers only allow sound after a real click or key press,
+// so it fades in on the first one instead of on load.
+// Tracks are re-encoded to 64k Opus to keep the repo small.
+const tracks = "halloween" in document.documentElement.dataset
+  ? ["gamestartup_halloween", "gamestartup_halloween1"]
+  : Array.from({ length: 29 }, (_, index) => `gamestartup${index + 1}`);
+const music = new Audio(`ui/music/${tracks[Math.floor(Math.random() * tracks.length)]}.webm`);
+music.preload = "none";
+music.muted = muted;
+const musicVolume = 0.1;
+const fadeMs = 4000;
+
+function fadeIn() {
+  let start: number | undefined;
+  const step = (now: number) => {
+    start ??= now;
+    music.volume = musicVolume * Math.min(1, (now - start) / fadeMs);
+    if (now - start < fadeMs) requestAnimationFrame(step);
+  };
+  requestAnimationFrame(step);
+}
+
+// Started even while muted (the sound button only toggles `muted`), so unmuting mid-track works like the game.
+function startMusic() {
+  if (!music.paused || music.ended) return;
+  music.volume = 0;
+  music.play().then(() => {
+    removeEventListener("pointerdown", startMusic);
+    removeEventListener("keydown", startMusic);
+    fadeIn();
+  }, () => {});
+}
+addEventListener("pointerdown", startMusic);
+addEventListener("keydown", startMusic);
 
 export function play(name: Sound) {
   if (muted) return;

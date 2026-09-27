@@ -18,8 +18,11 @@
         const day = 864e5;
         const moonCycle = 29.53 * day;
         const moonPhase = (((now - Date.UTC(2025, 9, 6)) % moonCycle) + moonCycle) % moonCycle;
+        const halloween = date >= 1001 && date < 1108;
+        // The menu music (src/ui/sound.ts) swaps to the Halloween tracks in the same window.
+        if (halloween) document.documentElement.dataset.halloween = "";
         const holiday =
-          date >= 1001 && date < 1108 ? pick(["title_team_halloween2011", "title_team_halloween2012", "title_team_halloween2013", "title_team_halloween2014", "title_team_halloween2015", "title_scream_fortress_2017"])
+          halloween ? pick(["title_team_halloween2011", "title_team_halloween2012", "title_team_halloween2013", "title_team_halloween2014", "title_team_halloween2015", "title_scream_fortress_2017"])
           : date >= 1201 || date < 108 ? pick(["background_xmas2020", "background_xmas2023"])
           : moonPhase < day || moonPhase > moonCycle - day ? "title_fullmoon"
           : null;
