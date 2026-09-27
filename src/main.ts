@@ -484,12 +484,16 @@ document.addEventListener("pointerdown", (event) => {
 });
 
 // Quick buttons for the newest event; older events are in the archive.
+$("#event-title").textContent = currentEvent;
 posterToggle.replaceChildren(...cards.filter((entry) => entry.event === currentEvent).map((entry) => {
   const button = document.createElement("button");
   button.type = "button";
-  button.className = "tf-button";
+  button.className = "tf-button menu-button";
   button.dataset.card = entry.id;
-  button.textContent = entry.name;
+  const icon = document.createElement("img");
+  icon.src = "ui/glyphs/workshop_edit.png";
+  icon.alt = "";
+  button.append(icon, entry.name);
   button.title = `${entry.event} ${entry.name}`;
   button.addEventListener("click", () => {
     if (entry === card) return;

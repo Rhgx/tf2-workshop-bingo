@@ -29,9 +29,11 @@ export async function fetchWorkshopItems(ids: string[]): Promise<WorkshopItem[]>
 
   return payload.response.publishedfiledetails.flatMap((detail): WorkshopItem[] => {
     if (!isRecord(detail) || typeof detail.publishedfileid !== "string" || !ids.includes(detail.publishedfileid)) return [];
-    if (String(detail.result) !== "1" || typeof detail.preview_url !== "string") return [];
-    const preview = new URL(detail.preview_url);
-    if (preview.protocol !== "https:" || preview.hostname !== "images.steamusercontent.com") return [];
+    if (String(detail.result) !== "1") return [];
+    // Steam sometimes sends an empty preview_url (an item without an image right now). Keep the item; its square
+    // stays blank, and it is fetched again on the next load in case the image has appeared.
+    const preview = typeof detail.preview_url === "string" && URL.canParse(detail.preview_url) ? new URL(detail.preview_url) : undefined;
+    const imageUrl = preview?.protocol === "https:" && preview.hostname === "images.steamusercontent.com" ? preview.href : "";
 
     const id = detail.publishedfileid;
     const creatorId = typeof detail.creator === "string" && /^\d{1,20}$/.test(detail.creator) ? detail.creator : undefined;
@@ -43,7 +45,7 @@ export async function fetchWorkshopItems(ids: string[]): Promise<WorkshopItem[]>
       id,
       title: typeof detail.title === "string" && detail.title.trim() ? detail.title.trim() : `Workshop item ${id}`,
       // Steam's image CDN allows any origin, so thumbnails load directly (and stay usable in canvas).
-      imageUrl: preview.href,
+      imageUrl,
       tags,
       ...(creatorId ? { creatorId } : {}),
       ...(creatorName ? { creatorName } : {}),

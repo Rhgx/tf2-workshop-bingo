@@ -31,45 +31,50 @@
       }
     </script>
     <div class="app-shell">
-      <aside class="loadout" aria-label="Items">
-        <form class="add-row" id="add-form">
-          <input
-            id="link-input"
-            type="text"
-            spellcheck="false"
-            autocomplete="off"
-            placeholder="Paste Workshop links"
-            aria-label="Steam Workshop links"
-          />
-          <button class="tf-button icon-button" type="submit" aria-label="Add" title="Add">
-            <img src="ui/glyphs/create.png" alt="" />
-          </button>
-        </form>
-        <p class="status" id="status" role="status" aria-live="polite"></p>
-        <ol class="item-list" id="item-list"></ol>
-        <p class="empty-hint" id="empty-hint">Ctrl+V anywhere, or drop links on a square.</p>
-        <div class="loadout-foot">
-          <span class="count" id="item-count"></span>
-          <button class="tf-button icon-button" id="sound-button" type="button" aria-pressed="true" aria-label="Sound" title="Sound">
-            <svg viewBox="0 0 24 24" aria-hidden="true">
-              <path class="speaker" d="M3 9h4l5-4.5v15L7 15H3z" />
-              <path class="waves" d="M15.5 8.5a5 5 0 0 1 0 7M18.5 5.5a9.5 9.5 0 0 1 0 13" />
-              <path class="cross" d="M15.5 9l6 6m0-6l-6 6" />
-            </svg>
-          </button>
-          <button class="tf-button icon-button" id="clear-button" type="button" aria-label="Clear board" title="Clear board">
-            <img src="ui/glyphs/workshop_delete.png" alt="" />
-          </button>
-        </div>
-      </aside>
+      <!-- Laid out like TF2's main menu (resource/ui/mainmenuoverride.res): the wordmark where TFLogoImage sits, titled
+           panels under it like EventPromo and FriendsContainer, the card where the class art goes, and the action
+           buttons in the footer strip (FooterLine, BackgroundFooter) like the Items and Store buttons. -->
+      <div class="menu">
+        <h1 class="wordmark"><small>TF2 Workshop</small> Bingo</h1>
+
+        <section class="menu-panel" aria-labelledby="event-title">
+          <header class="panel-title">
+            <h2 id="event-title"></h2>
+            <button class="tf-button small-button" id="archive-button" type="button" popovertarget="archive" title="Every card, grouped by event">
+              <img src="ui/glyphs/items.png" alt="" />Archive
+            </button>
+          </header>
+          <div class="poster-toggle" id="poster-toggle" role="group" aria-labelledby="event-title"></div>
+        </section>
+
+        <section class="menu-panel loadout" aria-labelledby="items-title">
+          <header class="panel-title">
+            <h2 id="items-title">Items</h2>
+            <span class="count" id="item-count"></span>
+            <button class="tf-button icon-button small-button" id="clear-button" type="button" aria-label="Clear board" title="Clear board">
+              <img src="ui/glyphs/workshop_delete.png" alt="" />
+            </button>
+          </header>
+          <form class="add-row" id="add-form">
+            <input
+              id="link-input"
+              type="text"
+              spellcheck="false"
+              autocomplete="off"
+              placeholder="Paste Workshop links"
+              aria-label="Steam Workshop links"
+            />
+            <button class="tf-button icon-button" type="submit" aria-label="Add" title="Add">
+              <img src="ui/glyphs/create.png" alt="" />
+            </button>
+          </form>
+          <p class="status" id="status" role="status" aria-live="polite"></p>
+          <p class="empty-hint" id="empty-hint">Ctrl+V anywhere, or drop links on a square.</p>
+          <ol class="item-list" id="item-list"></ol>
+        </section>
+      </div>
 
       <main class="board">
-        <div class="board-bar">
-          <button class="tf-button" id="archive-button" type="button" popovertarget="archive">Archive</button>
-          <div class="poster-toggle" id="poster-toggle" role="group" aria-label="Poster"></div>
-          <button class="tf-button" id="copy-button" type="button" disabled>Copy Markdown</button>
-          <button class="tf-button" id="download-button" type="button" disabled>Download PNG</button>
-        </div>
         <div class="poster-stage" id="poster-stage">
           <img id="poster-image" class="poster-image" alt="" draggable="false" />
           <div class="bingo-grid" id="bingo-grid" aria-label="Bingo squares"></div>
@@ -77,8 +82,23 @@
       </main>
 
       <footer class="site-foot">
-        Bingo cards by <a href="https://steamcommunity.com/groups/PaintersWorkshop">TF2 Painter's Workshop</a>
-        · Made by <a href="https://github.com/Rhgx">Rocks</a>
+        <button class="tf-button menu-button" id="copy-button" type="button" disabled>
+          <img src="ui/glyphs/markdown.svg" alt="" />Copy Markdown
+        </button>
+        <button class="tf-button menu-button" id="download-button" type="button" disabled>
+          <img src="ui/glyphs/save.png" alt="" />Download PNG
+        </button>
+        <p>
+          Bingo cards by <a href="https://steamcommunity.com/groups/PaintersWorkshop">TF2 Painter's Workshop</a>
+          · Made by <a href="https://github.com/Rhgx">Rocks</a>
+        </p>
+        <button class="tf-button icon-button small-button" id="sound-button" type="button" aria-pressed="true" aria-label="Sound" title="Sound">
+          <svg viewBox="0 0 24 24" aria-hidden="true">
+            <path class="speaker" d="M3 9h4l5-4.5v15L7 15H3z" />
+            <path class="waves" d="M15.5 8.5a5 5 0 0 1 0 7M18.5 5.5a9.5 9.5 0 0 1 0 13" />
+            <path class="cross" d="M15.5 9l6 6m0-6l-6 6" />
+          </svg>
+        </button>
       </footer>
 
       <div class="archive-panel" id="archive" popover aria-label="Card archive"></div>

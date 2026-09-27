@@ -33,17 +33,55 @@ body {
 
 button, input { font: inherit; }
 button { cursor: pointer; }
+/* UI chrome is not text to select: buttons, titles, the draggable rows and the card. Button icons also can't be
+   dragged out as images. The status line, item links and credits stay selectable. */
+button, .wordmark, .panel-title, .count, .item-row, .poster-stage { -webkit-user-select: none; user-select: none; }
+button img { pointer-events: none; }
 [hidden] { display: none !important; }
 
+/* Main menu layout (mainmenuoverride.res): the menu column on the left (TF2 anchors it at c-290), the card
+   filling the rest, and the footer strip across the bottom. The page never scrolls; the item list does. */
 .app-shell {
+  --pad: clamp(16px, 5vw, 96px);
   display: grid;
-  grid-template-columns: 300px minmax(0, 1fr);
-  gap: 20px;
-  align-items: start;
-  width: min(1500px, 100%);
-  margin: 0 auto;
-  padding: 16px;
+  grid-template-columns: 320px minmax(0, 1fr);
+  grid-template-rows: minmax(0, 1fr) auto;
+  column-gap: clamp(20px, 4vw, 64px);
+  height: max(100vh, 600px);
+  padding: 24px var(--pad) 0;
 }
+
+.menu { display: flex; flex-direction: column; gap: 12px; min-height: 0; padding-bottom: 16px; }
+
+/* Stands in for the TF2 logo: TF2 Build, cream, with the logo's hard dark shadow. */
+.wordmark {
+  display: flex;
+  flex-direction: column;
+  margin: 0 0 6px;
+  color: var(--tan);
+  font: 68px/.9 "TF2 Build", sans-serif;
+  text-transform: uppercase;
+  text-shadow: 0 3px 0 #2a2623, 0 4px 12px rgb(0 0 0 / 60%);
+}
+.wordmark small { color: #efb471; font-size: 24px; letter-spacing: .06em; }
+
+/* Panels like EventPromo and FriendsContainer: MainMenuBGBorder (button_holder_central, 32px corners drawn at 4
+   units) with a TitleLabel in HudFontSmallBold, cream (235 227 203), 30 units tall at the top left. */
+.menu-panel {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+  padding: 0 8px 10px;
+  border: 8px solid transparent;
+  border-image: url("/ui/button_holder_central.png") 32 fill / 8px;
+}
+.panel-title { display: flex; align-items: center; gap: 6px; min-height: 34px; }
+.panel-title h2 { margin: 0 auto 0 0; color: #ebe3cb; font: 15px "TF2 Build", sans-serif; text-transform: uppercase; }
+.poster-toggle { display: grid; grid-auto-columns: 1fr; grid-auto-flow: column; gap: 5px; }
+
+/* Main menu buttons: a 14px glyph at the left and the text inset 25 (SubButton / SubImage). */
+.tf-button.menu-button { justify-content: flex-start; gap: 10px; min-height: 40px; padding: 2px 8px; font-size: 14px; }
+.tf-button.menu-button img { width: 18px; height: 18px; }
 
 /* Buttons: TF2 main menu style, tan with dark ink, red on hover. */
 .tf-button {
@@ -65,25 +103,20 @@ button { cursor: pointer; }
 .tf-button:hover:not(:disabled) { color: var(--tan); border-image-source: url("/ui/button_central_hover.png"); }
 .tf-button:hover:not(:disabled) img { filter: none; }
 .tf-button:active:not(:disabled), .tf-button[aria-pressed="true"] { border-image-source: url("/ui/button_central_depressed.png"); }
-.tf-button:disabled { cursor: default; opacity: .45; }
+/* MainMenuButtonDisabled: its own translucent texture rather than a faded button. */
+.tf-button:disabled { cursor: default; color: #7d7465; border-image-source: url("/ui/button_central_disabled.png"); }
+.tf-button:disabled img { filter: brightness(.5); }
 .icon-button { width: 34px; padding: 0; }
+.tf-button.small-button { min-height: 28px; padding: 0 6px; border-width: 6px; border-image-width: 6px; font-size: 11px; }
+.tf-button.small-button img { width: 14px; height: 14px; }
+.icon-button.small-button { width: 28px; padding: 0; }
 #sound-button svg { width: 18px; height: 18px; fill: none; stroke: currentColor; stroke-width: 2.4; stroke-linecap: round; stroke-linejoin: round; }
 #sound-button .speaker { fill: currentColor; }
 #sound-button[aria-pressed="true"] .cross, #sound-button[aria-pressed="false"] .waves { display: none; }
 :focus-visible { outline: 2px solid var(--gold); outline-offset: 2px; }
 
-/* Items panel */
-.loadout {
-  position: sticky;
-  top: 16px;
-  display: flex;
-  flex-direction: column;
-  gap: 10px;
-  max-height: calc(100vh - 32px);
-  padding: 12px;
-  border: 12px solid transparent;
-  border-image: url("/ui/button_holder_central.png") 32 fill / 12px;
-}
+/* Items panel: sized to its contents, shrinking to fit so the list scrolls instead of the page. */
+.loadout { flex: 0 1 auto; min-height: 0; }
 
 .add-row { display: flex; gap: 6px; }
 .add-row input {
@@ -121,6 +154,9 @@ button { cursor: pointer; }
   padding: 0;
   overflow-y: auto;
   list-style: none;
+  /* The list sits in an InnerShadowBorder well, like the main menu's friends list. */
+  border: 8px solid transparent;
+  border-image: url("/ui/innershadow_border.png") 23 fill / 8px;
   scrollbar-color: #625a50 transparent;
 }
 /* Item panels use the backpack borders from clientscheme.res: 24px source corners drawn at ~8-11px. */
@@ -148,19 +184,17 @@ button { cursor: pointer; }
 .remove-button:hover { background: #91493b; opacity: 1; }
 
 .empty-hint { margin: 0; color: #8f8372; font-size: 12px; }
+.item-list:empty { display: none; }
 
-.loadout-foot { display: flex; align-items: center; gap: 6px; }
-.count { margin-right: auto; color: var(--tan-muted); font: 13px "TF2 Build", sans-serif; }
+.count { color: var(--tan-muted); font: 13px "TF2 Build", sans-serif; }
 .count b { color: #efb471; font-weight: 400; }
 
 /* Board */
-.board { display: flex; flex-direction: column; align-items: center; gap: 10px; min-width: 0; }
-.board-bar { display: flex; flex-wrap: wrap; justify-content: center; align-items: center; gap: 6px; }
-.poster-toggle { display: flex; gap: 2px; margin-right: 8px; }
+.board { display: flex; justify-content: center; align-items: center; min-width: 0; min-height: 0; padding-bottom: 16px; }
 .poster-stage {
   position: relative;
-  /* Fit the whole card in the viewport. */
-  width: min(100%, calc((100vh - 92px) * var(--ratio, 0.876)));
+  /* Fit the whole card in the space left by the page padding and the footer strip. */
+  width: min(100%, calc((max(100vh, 600px) - 104px) * var(--ratio, 0.876)));
   min-width: 300px;
   aspect-ratio: var(--ratio, 0.876);
   box-shadow: 0 5px 22px rgb(0 0 0 / 42%);
@@ -243,19 +277,29 @@ body.is-dragging, body.is-dragging * { cursor: grabbing !important; user-select:
 .tip-neutral { color: #ebe2ca; }
 .tip-positive { color: #99ccff; }
 
+/* Footer strip: FooterLine (loadout_solid_line, a 4px rule) over BackgroundFooter (loadout_bottom_gradient),
+   holding the action buttons like the menu's Items and Store buttons. */
 .site-foot {
+  display: flex;
+  flex-wrap: wrap;
   grid-column: 1 / -1;
-  color: var(--tan);
+  align-items: center;
+  gap: 8px;
+  margin: 0 calc(-1 * var(--pad));
+  padding: 12px var(--pad);
+  color: var(--tan-muted);
   font-size: 13px;
-  text-align: center;
-  text-shadow: 0 1px 2px #000, 0 0 6px #000;
+  background:
+    linear-gradient(#5a4d4a 0 1px, #84756b 1px 3px, #5a4d4a 3px) top / 100% 4px no-repeat,
+    linear-gradient(#3b3630, #2a2625);
 }
+.site-foot p { margin: 0 8px 0 auto; }
 .site-foot a { color: var(--tan); }
 .site-foot a:hover { color: var(--gold); }
 
 @media (max-width: 860px) {
-  .app-shell { grid-template-columns: 1fr; padding: 10px; }
-  .loadout { position: static; max-height: none; }
+  .app-shell { --pad: 10px; grid-template-columns: 1fr; grid-template-rows: none; height: auto; }
+  .wordmark { font-size: 40px; }
   .item-list { max-height: 40vh; }
   .poster-stage { width: 100%; min-width: 0; }
 }
