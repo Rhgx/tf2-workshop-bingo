@@ -8,6 +8,28 @@
     <title>TF2 Workshop Bingo</title>
   </head>
   <body>
+    <!-- Menu background, picked like TF2: a random scripts/ChapterBackgrounds.txt entry per launch, replaced by
+         holiday art (tf_hud_mainmenuoverride.cpp) in the date windows from econ_holidays.cpp, in UTC. -->
+    <script>
+      {
+        const pick = (list) => list[Math.floor(Math.random() * list.length)];
+        const now = new Date();
+        const date = (now.getUTCMonth() + 1) * 100 + now.getUTCDate();
+        const day = 864e5;
+        const moonCycle = 29.53 * day;
+        const moonPhase = (((now - Date.UTC(2025, 9, 6)) % moonCycle) + moonCycle) % moonCycle;
+        const holiday =
+          date >= 1001 && date < 1108 ? pick(["title_team_halloween2011", "title_team_halloween2012", "title_team_halloween2013", "title_team_halloween2014", "title_team_halloween2015", "title_scream_fortress_2017"])
+          : date >= 1201 || date < 108 ? pick(["background_xmas2020", "background_xmas2023"])
+          : moonPhase < day || moonPhase > moonCycle - day ? "title_fullmoon"
+          : null;
+        // Holiday art is full color to the edges; a vignette in the page color mutes it toward the regular
+        // backgrounds, which have their own sepia vignette, so it sits behind the UI instead of competing.
+        document.body.style.backgroundImage = holiday
+          ? `radial-gradient(ellipse, rgb(28 26 25 / 35%) 30%, rgb(28 26 25 / 80%)), url(ui/console/${holiday}.webp)`
+          : `url(ui/console/background_${pick(["2fort", "gravelpit", "upward", "mvm"])}.webp)`;
+      }
+    </script>
     <div class="app-shell">
       <aside class="loadout" aria-label="Items">
         <form class="add-row" id="add-form">
