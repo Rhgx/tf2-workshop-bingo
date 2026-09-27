@@ -48,7 +48,9 @@ export function parseWorkshopLinks(text: string): ParsedLinks {
   return { ids, duplicates, invalid };
 }
 
-const escapeMarkdown = (value: string) => value.replace(/\s+/g, " ").replace(/([\\`*_[\]<>|~])/g, "\\$1");
+// Underscores inside a word never start emphasis, so names like Pie_Savvy stay unescaped.
+const escapeMarkdown = (value: string) =>
+  value.replace(/\s+/g, " ").replace(/[\\`*[\]<>|~]|(?<![\p{L}\p{N}])_|_(?![\p{L}\p{N}])/gu, "\\$&");
 
 export function toMarkdown(items: Array<WorkshopItem | null>): string {
   return items.flatMap((item) => {

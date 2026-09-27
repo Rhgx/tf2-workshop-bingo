@@ -13,13 +13,13 @@ assert.deepEqual(
 
 assert.equal(
   toMarkdown([
-    { id: "101", title: "The [Big]  *Hat*", imageUrl: "", creatorId: "7656", creatorName: "some_guy" },
+    { id: "101", title: "The [Big]  *Hat* _v2_", imageUrl: "", creatorId: "7656", creatorName: "Pie_Savvy" },
     null,
     { id: "202", title: "Plain", imageUrl: "" },
     { id: "303", title: "Solo", imageUrl: "", creatorId: "7657" },
   ]),
   [
-    String.raw`- [The \[Big\] \*Hat\*](https://steamcommunity.com/sharedfiles/filedetails/?id=101) by [some\_guy](https://steamcommunity.com/profiles/7656)`,
+    String.raw`- [The \[Big\] \*Hat\* \_v2\_](https://steamcommunity.com/sharedfiles/filedetails/?id=101) by [Pie_Savvy](https://steamcommunity.com/profiles/7656)`,
     "- [Plain](https://steamcommunity.com/sharedfiles/filedetails/?id=202)",
     "- [Solo](https://steamcommunity.com/sharedfiles/filedetails/?id=303) by [creator](https://steamcommunity.com/profiles/7657)",
   ].join("\n"),
