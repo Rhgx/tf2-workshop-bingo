@@ -35,7 +35,7 @@
     </script>
     <div class="app-shell">
       <!-- Laid out like TF2's main menu (resource/ui/mainmenuoverride.res): the wordmark where TFLogoImage sits, titled
-           panels under it like EventPromo and FriendsContainer, the card where the class art goes, and the action
+           panels under it like EventPromo and FriendsContainer, the cards where the class art goes, and the action
            buttons in the footer strip (FooterLine, BackgroundFooter) like the Items and Store buttons. -->
       <div class="menu">
         <h1 class="wordmark"><small>TF2 Workshop</small> Bingo</h1>
@@ -43,18 +43,17 @@
         <section class="menu-panel" aria-labelledby="event-title">
           <header class="panel-title">
             <h2 id="event-title"></h2>
-            <button class="tf-button small-button" id="archive-button" type="button" popovertarget="archive" title="Every card, grouped by event">
+            <button class="tf-button small-button" id="archive-button" type="button" popovertarget="archive" title="Every event's cards">
               <img src="ui/glyphs/items.png" alt="" />Archive
             </button>
           </header>
-          <div class="poster-toggle" id="poster-toggle" role="group" aria-labelledby="event-title"></div>
         </section>
 
         <section class="menu-panel loadout" aria-labelledby="items-title">
           <header class="panel-title">
             <h2 id="items-title">Items</h2>
             <span class="count" id="item-count"></span>
-            <button class="tf-button icon-button small-button" id="clear-button" type="button" aria-label="Clear board" title="Clear board">
+            <button class="tf-button icon-button small-button" id="clear-button" type="button" aria-label="Clear cards" title="Clear cards">
               <img src="ui/glyphs/workshop_delete.png" alt="" />
             </button>
           </header>
@@ -77,12 +76,8 @@
         </section>
       </div>
 
-      <main class="board">
-        <div class="poster-stage" id="poster-stage">
-          <img id="poster-image" class="poster-image" alt="" draggable="false" />
-          <div class="bingo-grid" id="bingo-grid" aria-label="Bingo squares"></div>
-        </div>
-      </main>
+      <!-- The open event's cards side by side, built in src/main.ts. -->
+      <main class="board" id="board" aria-label="Bingo cards"></main>
 
       <footer class="site-foot">
         <button class="tf-button menu-button" id="copy-button" type="button" disabled>
@@ -104,7 +99,7 @@
         </button>
       </footer>
 
-      <div class="archive-panel" id="archive" popover aria-label="Card archive"></div>
+      <div class="archive-panel" id="archive" popover aria-label="Event archive"></div>
       <div class="item-tooltip" id="tooltip" role="tooltip" hidden></div>
     </div>
     <script type="module" src="/src/main.ts"></script>

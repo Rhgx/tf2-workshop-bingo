@@ -1,5 +1,5 @@
 import assert from "node:assert/strict";
-import { describeTags, parseWorkshopLinks, toMarkdown } from "../src/steam/workshop.ts";
+import { describeTags, itemKind, parseWorkshopLinks, toMarkdown } from "../src/steam/workshop.ts";
 
 assert.deepEqual(
   parseWorkshopLinks([
@@ -31,5 +31,17 @@ assert.deepEqual(
   { type: "All-Class War Paint", extra: ["Halloween"] },
 );
 assert.deepEqual(describeTags(["King of the Hill", "Night"]), { type: "", extra: ["King of the Hill", "Night"] });
+
+// Tags as Steam reports them for Scream Fortress 2026 submissions.
+const allClass = ["Scout", "Sniper", "Soldier", "Demoman", "Medic", "Heavy", "Pyro", "Spy", "Engineer"];
+assert.equal(itemKind([...allClass, "Weapon", "Halloween", "War Paint", "Smissmas", "Summer"]), "War Paint");
+assert.equal(itemKind(["Headgear", "Misc", "Halloween", "Unusual Effect"]), "Unusual Effect");
+assert.equal(itemKind(["Halloween", "Taunt", "Unusual Effect"]), "Unusual Effect");
+assert.equal(itemKind(["Medic", "Halloween", "Taunt", "Certified Compatible"]), "Taunt");
+assert.equal(itemKind(["Spy", "Headgear", "Halloween", "Certified Compatible"]), "Cosmetic");
+assert.equal(itemKind(["Heavy", "Misc", "Halloween", "Certified Compatible"]), "Cosmetic");
+assert.equal(itemKind(["Capture the Flag", "Medieval", "Halloween", "Night"]), "Map");
+assert.equal(itemKind(["Halloween"]), "Map");
+assert.equal(itemKind(["Soldier", "Primary", "Weapon"]), undefined);
 
 console.log("Workshop link, Markdown and tag checks passed.");

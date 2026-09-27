@@ -2,7 +2,8 @@
 
 The icon floats on a soft glow in its own colour (a nod to Unusual effects), the label is the grey
 item level line and the name is in the Unique quality colour. Text is converted to paths from the
-game fonts in public/ui/fonts, so the SVGs render the same everywhere. Icons come from Simple Icons (CC0).
+game fonts in public/ui/fonts, so the SVGs render the same everywhere. Icons come from Simple Icons (CC0),
+except pnpm's two-colour logo, which is drawn here.
 
     pip install fonttools
     python scripts/make-badges.py      # writes docs/badges/*.svg
@@ -21,12 +22,23 @@ FONTS = ROOT / "public/ui/fonts"
 OUT = ROOT / "docs/badges"
 ICONS = "https://cdn.jsdelivr.net/npm/simple-icons@16.32.0/icons/{}.svg"
 
-# (file, Simple Icons slug, icon colour, label, name, backing). Backing fills a logo's cut-outs,
-# e.g. the white letters of the TypeScript square.
+
+def pnpm_icon() -> str:
+    """pnpm's two-colour logo for dark backgrounds (32 units, drawn at 24). Simple Icons only has a one-colour outline."""
+    return (
+        '<g transform="scale(.75)">'
+        '<path fill="#e0e0e0" d="M2 22h8v8H2zm10 0h8v8h-8zm10 0h8v8h-8zM12 12h8v8h-8z"/>'
+        '<path fill="#ffb300" d="M2 2h8v8H2zm10 0h8v8h-8zm10 0h8v8h-8zm0 10h8v8h-8z"/>'
+        "</g>"
+    )
+
+
+# (file, Simple Icons slug or icon function, icon colour, label, name, backing). Backing fills a logo's cut-outs,
+# e.g. the white letters of the TypeScript square. Vite's colour is the bolt in its current logo (vite.dev/logo.svg).
 BADGES = [
     ("typescript", "typescript", "#3178c6", "Built with", "TypeScript", "#fff"),
-    ("vite", "vite", "#646cff", "Built with", "Vite", None),
-    ("pnpm", "pnpm", "#f69220", "Managed with", "pnpm", None),
+    ("vite", "vite", "#863bff", "Built with", "Vite", None),
+    ("pnpm", pnpm_icon, "#ffb300", "Managed with", "pnpm", None),
 ]
 
 # Colours from the game: backpack panels and clientscheme.res tooltip text
@@ -65,7 +77,8 @@ def icon_path(slug: str) -> str:
         return re.search(r' d="([^"]+)"', response.read().decode()).group(1)
 
 
-def badge(label_font: Font, name_font: Font, slug: str, colour: str, label: str, name: str, backing: str | None) -> str:
+def badge(label_font: Font, name_font: Font, icon, colour: str, label: str, name: str, backing: str | None) -> str:
+    icon_svg = icon() if callable(icon) else f'<path fill="{colour}" d="{icon_path(icon)}"/>'
     text_x = ICON_AT + ICON_SIZE + 11
     label_d, label_w = label_font.path(label, 13, text_x, 24)
     name_d, name_w = name_font.path(name, 19, text_x, 44)
@@ -88,7 +101,7 @@ def badge(label_font: Font, name_font: Font, slug: str, colour: str, label: str,
         f'<circle cx="{centre}" cy="{centre}" r="{ICON_SIZE / 2 + 6}" fill="url(#glow)"/>'
         '<g filter="url(#shadow)">'
         f"{backing_rect}"
-        f'<path fill="{colour}" transform="translate({icon_at} {icon_at}) scale({ICON_SIZE / 24})" d="{icon_path(slug)}"/>'
+        f'<g transform="translate({icon_at} {icon_at}) scale({ICON_SIZE / 24})">{icon_svg}</g>'
         f'<path fill="{LEVEL}" d="{label_d}"/>'
         f'<path fill="{UNIQUE}" d="{name_d}"/>'
         "</g>"

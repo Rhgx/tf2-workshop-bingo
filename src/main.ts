@@ -1,8 +1,8 @@
 import "./style.css";
-import { cards, cardsByEvent, currentEvent, findCard, type Card } from "./data/cards";
+import { cards, cardsByEvent, currentEvent, type Card, type Slot } from "./data/cards";
 import { loadSaved, saveAll, type Slots } from "./data/storage";
 import { fetchWorkshopItems } from "./steam/api";
-import { parseWorkshopLinks, toMarkdown, type WorkshopItem } from "./steam/workshop";
+import { itemKind, parseWorkshopLinks, toMarkdown, type WorkshopItem } from "./steam/workshop";
 import { $ } from "./ui/dom";
 import { renderCardPng, saveBlob } from "./ui/export";
 import { isMuted, play, toggleMuted } from "./ui/sound";
@@ -18,15 +18,17 @@ const soundButton = $<HTMLButtonElement>("#sound-button");
 const clearButton = $<HTMLButtonElement>("#clear-button");
 const copyButton = $<HTMLButtonElement>("#copy-button");
 const downloadButton = $<HTMLButtonElement>("#download-button");
-const posterToggle = $("#poster-toggle");
-const posterStage = $("#poster-stage");
-const posterImage = $<HTMLImageElement>("#poster-image");
-const grid = $("#bingo-grid");
+const board = $("#board");
 const archive = $("#archive");
 
+/** A square: card ID and slot index. */
+type Ref = { card: string; index: number };
+
 const saved = loadSaved();
-let card: Card = findCard(localStorage.getItem("bingo-card"));
-let selectedSlot: number | null = null;
+/** The open event's cards, shown side by side. */
+let shown: Card[] = [];
+let grids = new Map<string, HTMLElement>();
+let selected: Ref | null = null;
 let pending = 0;
 let isExporting = false;
 
@@ -37,8 +39,12 @@ function slotsFor(target: Card): Slots {
   saved[target.id] = Array.from({ length: target.slots.length }, (_, index) => list[index] ?? null);
   return saved[target.id];
 }
-const items = (): Slots => saved[card.id];
-const filledCount = (list: Slots = items()) => list.filter(Boolean).length;
+const eventCards = (event: string | null) => cards.filter((card) => card.event === event);
+const at = ({ card, index }: Ref) => saved[card][index];
+const same = (a: Ref | null, b: Ref | null) => Boolean(a && b && a.card === b.card && a.index === b.index);
+const shownItems = (): Slots => shown.flatMap((card) => saved[card.id]);
+const hasItems = (card: Card) => saved[card.id].some(Boolean);
+const filledCount = (list: Slots) => list.filter(Boolean).length;
 const plural = (count: number, word: string) => `${count} ${word}${count === 1 ? "" : "s"}`;
 const save = () => saveAll(saved);
 
@@ -56,50 +62,59 @@ function fail(message: string) {
 const needsDetails = (item: WorkshopItem | null): item is WorkshopItem =>
   Boolean(item && (!item.imageUrl || !item.tags || (item.creatorId && !item.creatorName)));
 
-async function hydrate(target = card) {
-  const list = saved[target.id];
-  const ids = list.flatMap((item) => needsDetails(item) ? [item.id] : []);
+async function hydrate(target = shown) {
+  const lists = target.map((card) => saved[card.id]);
+  const ids = lists.flat().flatMap((item) => needsDetails(item) ? [item.id] : []);
   if (!ids.length) return;
   pending++;
   setStatus(`Loading ${plural(ids.length, "item")}…`);
   render();
   try {
     const byId = new Map((await fetchWorkshopItems(ids)).map((item) => [item.id, item]));
-    list.forEach((item, index) => {
-      const fresh = needsDetails(item) && byId.get(item.id);
-      // Keep a name we already have if Steam didn't send one this time.
-      if (fresh) list[index] = { creatorName: item.creatorName, ...fresh };
-    });
+    for (const list of lists) {
+      list.forEach((item, index) => {
+        const fresh = needsDetails(item) && byId.get(item.id);
+        // Keep a name we already have if Steam didn't send one this time.
+        if (fresh) list[index] = { creatorName: item.creatorName, ...fresh };
+      });
+    }
     save();
     setStatus(ids.length > byId.size ? `${plural(ids.length - byId.size, "item")} not found or private.` : "");
   } catch (error) {
-    fail(error instanceof Error ? error.message : "Could not load this card.");
+    fail(error instanceof Error ? error.message : "Could not load these cards.");
   } finally {
     pending--;
     render();
   }
 }
 
-// Fills empty squares starting at `start`, wrapping around. Returns how many were placed.
-function place(list: Slots, newItems: WorkshopItem[], start: number): number {
-  const queue = newItems.filter((item) => !list.some((existing) => existing?.id === item.id));
+// Each item goes in the first free square of its kind (from its tags), then in a free "?" square. A free
+// square the user picked (`start`) takes the first item whatever its kind. Returns how many were placed.
+function place(target: Card[], newItems: WorkshopItem[], start: Ref | null): number {
+  const squares = target.flatMap((card) => card.slots.map(({ kind }, index) => ({ card: card.id, index, kind })));
+  const onCard = new Set(squares.flatMap((square) => at(square)?.id ?? []));
   let placed = 0;
-  for (let step = 0; step < list.length && placed < queue.length; step++) {
-    const slot = (start + step) % list.length;
-    if (!list[slot]) list[slot] = queue[placed++];
-  }
+  newItems.filter((item) => !onCard.has(item.id)).forEach((item, n) => {
+    const kind = itemKind(item.tags ?? []);
+    const free = squares.filter((square) => !at(square));
+    const square = (n === 0 ? free.find((square) => same(square, start)) : undefined)
+      ?? free.find((square) => square.kind === kind)
+      ?? free.find((square) => !square.kind);
+    if (!square) return;
+    saved[square.card][square.index] = item;
+    placed++;
+  });
   return placed;
 }
 
-async function addLinks(text: string, start = selectedSlot ?? 0) {
-  const target = card;
-  const list = items();
+async function addLinks(text: string, start = selected) {
+  const target = shown;
   const parsed = parseWorkshopLinks(text);
-  const onCard = new Set(list.flatMap((item) => item ? [item.id] : []));
+  const onCard = new Set(target.flatMap((card) => saved[card.id].flatMap((item) => item ? [item.id] : [])));
   const ids = parsed.ids.filter((id) => !onCard.has(id));
   const repeats = parsed.duplicates + parsed.ids.length - ids.length;
   if (!ids.length) {
-    fail(repeats ? "Already on the card." : "Not a Workshop item link.");
+    fail(repeats ? "Already on a card." : "Not a Workshop item link.");
     return;
   }
 
@@ -108,14 +123,15 @@ async function addLinks(text: string, start = selectedSlot ?? 0) {
   render();
   try {
     const loaded = await fetchWorkshopItems(ids);
-    const placed = place(saved[target.id], loaded, start);
-    if (target === card) selectedSlot = null;
+    const placed = place(target, loaded, start);
+    if (target === shown) selected = null;
     save();
+    const left = loaded.length - placed;
     const notes = [
-      loaded.length > placed ? `card full, ${loaded.length - placed} left out` : "",
+      left ? `${left} left out, no free square of ${left === 1 ? "its" : "their"} kind` : "",
       ids.length > loaded.length ? `${ids.length - loaded.length} not found or private` : "",
       parsed.invalid ? `${parsed.invalid} not a Workshop link` : "",
-      repeats ? `${repeats} already on the card` : "",
+      repeats ? `${repeats} already on a card` : "",
     ].filter(Boolean);
     if (placed) play("added");
     if (!placed) fail(notes.join(" · ") || "Nothing added.");
@@ -128,66 +144,67 @@ async function addLinks(text: string, start = selectedSlot ?? 0) {
   }
 }
 
-function swapSlots(source: number, target: number) {
-  const list = items();
-  selectedSlot = null;
-  if (source !== target) {
-    [list[source], list[target]] = [list[target], list[source]];
+function swapSlots(source: Ref, target: Ref) {
+  selected = null;
+  if (!same(source, target)) {
+    [saved[source.card][source.index], saved[target.card][target.index]] = [at(target), at(source)];
     save();
     play("drop");
   }
   render();
 }
 
-function removeItem(index: number) {
-  if (!items()[index]) return;
-  items()[index] = null;
-  selectedSlot = null;
+function removeItem(ref: Ref) {
+  if (!at(ref)) return;
+  saved[ref.card][ref.index] = null;
+  selected = null;
   save();
   play("remove");
   render();
 }
 
-function selectSlot(index: number) {
-  const list = items();
-  if (selectedSlot === index) {
-    selectedSlot = null;
-  } else if (selectedSlot === null || (!list[selectedSlot] && !list[index])) {
-    selectedSlot = index;
+function selectSlot(ref: Ref) {
+  if (same(selected, ref)) {
+    selected = null;
+  } else if (!selected || (!at(selected) && !at(ref))) {
+    selected = ref;
     play("pickup");
   } else {
-    swapSlots(selectedSlot, index);
+    swapSlots(selected, ref);
     return;
   }
   render();
   // An empty square is a paste target.
-  if (selectedSlot !== null && !list[selectedSlot]) linkInput.focus();
+  if (selected && !at(selected)) linkInput.focus();
 }
 
 // Backpack-style dragging (CBackpackPanel in the Source SDK): press an item, then move 10px or hold
 // 0.3s. The source slot empties, a copy of the item panel follows the cursor centred on it, the slot
-// under the cursor lights up, and releasing swaps. Releasing anywhere else puts the item back.
-type Drag = { from: number; x: number; y: number; startX: number; startY: number; timer: number; ghost?: HTMLElement; over?: Element };
+// under the cursor lights up, and releasing swaps (across cards too). Releasing anywhere else puts the item back.
+type Drag = { from: Ref; x: number; y: number; startX: number; startY: number; timer: number; ghost?: HTMLElement; over?: Element };
 let drag: Drag | null = null;
 let suppressClick = false;
 
 const dragTargets = () => [...document.querySelectorAll<HTMLElement>(".bingo-slot, .item-row")];
-const targetIndex = (element: Element | undefined) => element ? Number((element as HTMLElement).dataset.index) : -1;
+/** The square a slot or list row stands for. */
+const refOf = (element: Element | null | undefined): Ref | null =>
+  element instanceof HTMLElement && element.dataset.card ? { card: element.dataset.card, index: Number(element.dataset.index) } : null;
+const slotElement = ({ card, index }: Ref) => board.querySelector<HTMLElement>(`.bingo-slot[data-card="${card}"][data-index="${index}"]`);
 
-function beginPress(event: PointerEvent, index: number) {
-  if (event.button !== 0 || !items()[index] || drag) return;
-  drag = { from: index, x: event.clientX, y: event.clientY, startX: event.clientX, startY: event.clientY, timer: window.setTimeout(startDrag, 300) };
+function beginPress(event: PointerEvent, ref: Ref) {
+  if (event.button !== 0 || !at(ref) || drag) return;
+  drag = { from: ref, x: event.clientX, y: event.clientY, startX: event.clientX, startY: event.clientY, timer: window.setTimeout(startDrag, 300) };
 }
 
 function startDrag() {
   if (!drag || drag.ghost) return;
-  const item = items()[drag.from];
+  const item = at(drag.from);
   if (!item) return;
-  selectedSlot = null;
+  selected = null;
   render();
   hideTooltip();
 
-  const { width, height } = grid.children[drag.from].getBoundingClientRect();
+  const { width, height } = slotElement(drag.from)?.getBoundingClientRect() ?? { width: 64, height: 64 };
   const ghost = document.createElement("div");
   ghost.className = "drag-item";
   ghost.style.width = `${width}px`;
@@ -201,7 +218,7 @@ function startDrag() {
   document.body.append(ghost);
   drag.ghost = ghost;
   document.body.classList.add("is-dragging");
-  for (const element of dragTargets()) element.classList.toggle("is-drag-source", targetIndex(element) === drag.from);
+  for (const element of dragTargets()) element.classList.toggle("is-drag-source", same(refOf(element), drag.from));
   play("pickup");
   moveDrag();
 }
@@ -225,8 +242,8 @@ function endDrag(commit: boolean) {
   ghost.remove();
   document.body.classList.remove("is-dragging");
   suppressClick = true;
-  const to = commit ? targetIndex(over) : -1;
-  if (to >= 0 && to !== from) {
+  const to = commit ? refOf(over) : null;
+  if (to && !same(to, from)) {
     swapSlots(from, to);
   } else {
     play("drop");
@@ -252,20 +269,43 @@ document.addEventListener("click", (event) => {
 }, true);
 document.addEventListener("pointerdown", () => { suppressClick = false; }, true);
 
-function makeSlot(index: number): HTMLButtonElement {
-  const item = items()[index];
-  const { width, height, slots } = card;
-  const { x, y, w, h } = slots[index];
+/** A card's poster with an empty layer over it for the squares. */
+function makeStage(card: Card): [stage: HTMLElement, grid: HTMLElement] {
+  const stage = document.createElement("div");
+  stage.className = "poster-stage";
+  stage.style.setProperty("--ratio", String(card.width / card.height));
+  const poster = document.createElement("img");
+  poster.className = "poster-image";
+  poster.src = card.preview;
+  poster.alt = `${card.event} ${card.name}`;
+  poster.draggable = false;
+  const grid = document.createElement("div");
+  grid.className = "bingo-grid";
+  stage.append(poster, grid);
+  return [stage, grid];
+}
+
+/** Puts an element over its slot, in percentages of the poster so it scales with it. */
+function placeOver(element: HTMLElement, card: Card, { x, y, w, h }: Slot) {
+  element.style.left = `${(x / card.width) * 100}%`;
+  element.style.top = `${(y / card.height) * 100}%`;
+  element.style.width = `${(w / card.width) * 100}%`;
+  element.style.height = `${(h / card.height) * 100}%`;
+}
+
+function makeSlot(card: Card, index: number): HTMLButtonElement {
+  const ref = { card: card.id, index };
+  const item = at(ref);
+  const { kind } = card.slots[index];
+  const isSelected = same(selected, ref);
   const slot = document.createElement("button");
   slot.type = "button";
-  slot.className = `bingo-slot${item ? " is-filled" : ""}${selectedSlot === index ? " is-selected" : ""}`;
+  slot.className = `bingo-slot${item ? " is-filled" : ""}${isSelected ? " is-selected" : ""}`;
+  slot.dataset.card = card.id;
   slot.dataset.index = String(index);
-  slot.setAttribute("aria-pressed", String(selectedSlot === index));
-  slot.setAttribute("aria-label", `Square ${index + 1}: ${item ? item.title : "empty"}`);
-  slot.style.left = `${(x / width) * 100}%`;
-  slot.style.top = `${(y / height) * 100}%`;
-  slot.style.width = `${(w / width) * 100}%`;
-  slot.style.height = `${(h / height) * 100}%`;
+  slot.setAttribute("aria-pressed", String(isSelected));
+  slot.setAttribute("aria-label", `${card.name}, square ${index + 1} (${kind ?? "any item"}): ${item ? item.title : "empty"}`);
+  placeOver(slot, card, card.slots[index]);
 
   if (item?.imageUrl) {
     const image = document.createElement("img");
@@ -279,21 +319,21 @@ function makeSlot(index: number): HTMLButtonElement {
     slot.append(image);
   }
 
-  slot.addEventListener("pointerdown", (event) => beginPress(event, index));
+  slot.addEventListener("pointerdown", (event) => beginPress(event, ref));
   if (item) {
     slot.addEventListener("pointerenter", () => showTooltip(item, slot));
     slot.addEventListener("focus", () => showTooltip(item, slot));
     slot.addEventListener("pointerleave", hideTooltip);
     slot.addEventListener("blur", hideTooltip);
   }
-  slot.addEventListener("click", () => selectSlot(index));
+  slot.addEventListener("click", () => selectSlot(ref));
   slot.addEventListener("contextmenu", (event) => {
     if (!item) return;
     event.preventDefault();
-    removeItem(index);
+    removeItem(ref);
   });
   slot.addEventListener("keydown", (event) => {
-    if (event.key === "Delete" || event.key === "Backspace") removeItem(index);
+    if (event.key === "Delete" || event.key === "Backspace") removeItem(ref);
   });
   // Links dragged in from another tab (native drag and drop).
   slot.addEventListener("dragover", (event) => {
@@ -305,16 +345,17 @@ function makeSlot(index: number): HTMLButtonElement {
     event.preventDefault();
     event.stopPropagation();
     slot.classList.remove("is-drag-over");
-    addLinks(event.dataTransfer?.getData("text/uri-list") || event.dataTransfer?.getData("text/plain") || "", index);
+    addLinks(event.dataTransfer?.getData("text/uri-list") || event.dataTransfer?.getData("text/plain") || "", ref);
   });
 
   return slot;
 }
 
-function makeRow(item: WorkshopItem, index: number): HTMLLIElement {
+function makeRow(item: WorkshopItem, ref: Ref): HTMLLIElement {
   const row = document.createElement("li");
   row.className = "item-row";
-  row.dataset.index = String(index);
+  row.dataset.card = ref.card;
+  row.dataset.index = String(ref.index);
 
   const thumb = document.createElement("img");
   if (item.imageUrl) thumb.src = item.imageUrl;
@@ -337,81 +378,107 @@ function makeRow(item: WorkshopItem, index: number): HTMLLIElement {
   remove.className = "remove-button";
   remove.setAttribute("aria-label", `Remove ${item.title}`);
   remove.innerHTML = `<img src="ui/glyphs/close_x.png" alt="" />`;
-  remove.addEventListener("click", () => removeItem(index));
+  remove.addEventListener("click", () => removeItem(ref));
 
   row.addEventListener("pointerdown", (event) => {
-    if (!(event.target as Element).closest(".remove-button")) beginPress(event, index);
+    if (!(event.target as Element).closest(".remove-button")) beginPress(event, ref);
   });
-  row.addEventListener("pointerenter", () => grid.children[index]?.classList.add("is-hot"));
-  row.addEventListener("pointerleave", () => grid.children[index]?.classList.remove("is-hot"));
+  row.addEventListener("pointerenter", () => slotElement(ref)?.classList.add("is-hot"));
+  row.addEventListener("pointerleave", () => slotElement(ref)?.classList.remove("is-hot"));
   row.append(thumb, text, remove);
   return row;
 }
 
+// One list for every shown card, in card order, with a heading per card when there are several.
 function renderList() {
-  itemList.replaceChildren(...items().flatMap((item, index) => item ? [makeRow(item, index)] : []));
-  emptyHint.hidden = filledCount() > 0;
+  itemList.replaceChildren(...shown.flatMap((card) => {
+    const rows = saved[card.id].flatMap((item, index) => item ? [makeRow(item, { card: card.id, index })] : []);
+    if (!rows.length || shown.length === 1) return rows;
+    const heading = document.createElement("li");
+    heading.className = "list-heading";
+    heading.textContent = `${card.name} · ${rows.length}/${card.slots.length}`;
+    return [heading, ...rows];
+  }));
+  emptyHint.hidden = shownItems().some(Boolean);
 }
 
 function render() {
   hideTooltip();
-  const focused = [...grid.children].indexOf(document.activeElement as Element);
-  grid.replaceChildren(...items().map((_, index) => makeSlot(index)));
-  if (focused >= 0) (grid.children[focused] as HTMLElement | undefined)?.focus();
+  const focused = refOf(document.activeElement?.closest(".bingo-slot"));
+  for (const card of shown) grids.get(card.id)?.replaceChildren(...card.slots.map((_, index) => makeSlot(card, index)));
+  if (focused) slotElement(focused)?.focus();
   renderList();
-  const count = filledCount();
-  itemCount.innerHTML = `<b>${count}</b>/${items().length}`;
+  const count = filledCount(shownItems());
+  itemCount.innerHTML = `<b>${count}</b>/${shownItems().length}`;
   copyButton.disabled = count === 0;
   downloadButton.disabled = count === 0 || isExporting;
   clearButton.disabled = count === 0;
   addForm.classList.toggle("is-loading", pending > 0);
-  for (const button of posterToggle.children) button.setAttribute("aria-pressed", String((button as HTMLElement).dataset.card === card.id));
 }
 
-function openCard(next: Card) {
+function openEvent(event: string) {
   endDrag(false);
-  card = next;
-  slotsFor(card);
-  localStorage.setItem("bingo-card", card.id);
-  selectedSlot = null;
-  posterImage.src = card.preview;
-  posterImage.alt = `${card.event} ${card.name}`;
-  posterStage.style.setProperty("--ratio", String(card.width / card.height));
+  shown = eventCards(event);
+  shown.forEach((card) => slotsFor(card));
+  localStorage.setItem("bingo-event", event);
+  selected = null;
+  $("#event-title").textContent = event;
+  grids = new Map();
+  board.replaceChildren(...shown.map((card) => {
+    const [stage, grid] = makeStage(card);
+    grid.setAttribute("aria-label", `${card.name} squares`);
+    grids.set(card.id, grid);
+    return stage;
+  }));
+  board.style.setProperty("--cards", String(shown.length));
   setStatus("");
   render();
   hydrate();
 }
 
+// One entry per event, since an event opens all its cards: small copies of its cards with their items drawn in.
 function renderArchive() {
   archive.replaceChildren(...[...cardsByEvent()].map(([event, eventCards]) => {
-    const section = document.createElement("section");
-    const heading = document.createElement("h2");
-    heading.textContent = event;
-    const list = document.createElement("div");
-    list.className = "archive-cards";
-    list.append(...eventCards.map((entry) => {
-      const button = document.createElement("button");
-      button.type = "button";
-      button.className = "archive-card";
-      button.setAttribute("aria-pressed", String(entry === card));
-      const image = document.createElement("img");
-      image.src = entry.preview;
-      image.alt = "";
-      image.loading = "lazy";
-      const label = document.createElement("span");
-      label.textContent = `${entry.name} · ${filledCount(slotsFor(entry))}/${entry.slots.length}`;
-      button.append(image, label);
-      button.addEventListener("click", () => {
-        archive.hidePopover();
-        if (entry !== card) {
-          openCard(entry);
-          play("folder");
-        }
-      });
-      return button;
+    const items = eventCards.flatMap((card) => slotsFor(card));
+    const button = document.createElement("button");
+    button.type = "button";
+    button.className = "archive-event";
+    button.setAttribute("aria-current", String(event === shown[0].event));
+    button.setAttribute("aria-label", `${event}, ${filledCount(items)} of ${items.length} squares filled`);
+
+    const posters = document.createElement("div");
+    posters.className = "archive-posters";
+    posters.append(...eventCards.map((card) => {
+      const [stage, grid] = makeStage(card);
+      grid.append(...saved[card.id].flatMap((item, index) => {
+        if (!item?.imageUrl) return [];
+        const image = document.createElement("img");
+        image.src = item.imageUrl;
+        image.alt = "";
+        image.loading = "lazy";
+        placeOver(image, card, card.slots[index]);
+        return [image];
+      }));
+      return stage;
     }));
-    section.append(heading, list);
-    return section;
+
+    const caption = document.createElement("span");
+    caption.className = "archive-caption";
+    const name = document.createElement("strong");
+    name.textContent = event;
+    const count = document.createElement("span");
+    count.className = "count";
+    count.innerHTML = `<b>${filledCount(items)}</b>/${items.length}`;
+    caption.append(name, count);
+
+    button.append(posters, caption);
+    button.addEventListener("click", () => {
+      archive.hidePopover();
+      if (event === shown[0].event) return;
+      openEvent(event);
+      play("folder");
+    });
+    return button;
   }));
 }
 
@@ -419,21 +486,25 @@ function renderSound() {
   soundButton.setAttribute("aria-pressed", String(!isMuted()));
 }
 
-const fileSlug = () => `${card.event} ${card.name}`.toLowerCase().replace(/[^a-z0-9]+/g, "-");
+const fileSlug = (text: string) => text.toLowerCase().replace(/[^a-z0-9]+/g, "-");
 
-async function downloadCard() {
-  const current = card;
-  const list = items();
+// One PNG per card with items, so each card can be posted on its own.
+async function downloadCards() {
+  const target = shown.filter(hasItems);
   isExporting = true;
   render();
-  setStatus("Rendering PNG…");
+  setStatus(`Rendering ${plural(target.length, "PNG")}…`);
   try {
-    const { blob, missing } = await renderCardPng(current, list);
-    saveBlob(blob, `${fileSlug()}.png`);
+    let missing = 0;
+    for (const card of target) {
+      const result = await renderCardPng(card, saved[card.id]);
+      saveBlob(result.blob, `${fileSlug(`${card.event} ${card.name}`)}.png`);
+      missing += result.missing;
+    }
     setStatus(missing ? `Saved, but ${plural(missing, "thumbnail")} failed to load.` : "");
     play("download");
   } catch (error) {
-    fail(error instanceof Error ? error.message : "Could not export the card.");
+    fail(error instanceof Error ? error.message : "Could not export the cards.");
   } finally {
     isExporting = false;
     render();
@@ -458,7 +529,7 @@ document.addEventListener("paste", (event) => {
   addLinks(text);
 });
 
-// Links dragged in from a Steam tab land in the first empty square.
+// Links dragged in from a Steam tab land in a free square of their kind.
 document.addEventListener("dragover", (event) => {
   if (event.dataTransfer?.types.includes("text/uri-list")) event.preventDefault();
 });
@@ -472,8 +543,8 @@ document.addEventListener("drop", (event) => {
 document.addEventListener("keydown", (event) => {
   if (event.key !== "Escape") return;
   if (drag) endDrag(false);
-  else if (selectedSlot !== null) {
-    selectedSlot = null;
+  else if (selected) {
+    selected = null;
     render();
   }
 });
@@ -482,26 +553,6 @@ document.addEventListener("pointerdown", (event) => {
   const button = (event.target as Element).closest?.<HTMLButtonElement>(".tf-button");
   if (button && !button.disabled) play("click");
 });
-
-// Quick buttons for the newest event; older events are in the archive.
-$("#event-title").textContent = currentEvent;
-posterToggle.replaceChildren(...cards.filter((entry) => entry.event === currentEvent).map((entry) => {
-  const button = document.createElement("button");
-  button.type = "button";
-  button.className = "tf-button menu-button";
-  button.dataset.card = entry.id;
-  const icon = document.createElement("img");
-  icon.src = "ui/glyphs/workshop_edit.png";
-  icon.alt = "";
-  button.append(icon, entry.name);
-  button.title = `${entry.event} ${entry.name}`;
-  button.addEventListener("click", () => {
-    if (entry === card) return;
-    openCard(entry);
-    play("folder");
-  });
-  return button;
-}));
 
 archive.addEventListener("toggle", (event) => {
   if ((event as ToggleEvent).newState !== "open") return;
@@ -515,10 +566,10 @@ soundButton.addEventListener("click", () => {
 });
 
 clearButton.addEventListener("click", () => {
-  const target = card;
-  const previous = [...items()];
-  saved[target.id] = previous.map(() => null);
-  selectedSlot = null;
+  const target = shown;
+  const previous = target.map((card) => saved[card.id]);
+  for (const card of target) saved[card.id] = saved[card.id].map(() => null);
+  selected = null;
   save();
   play("clear");
   render();
@@ -527,29 +578,33 @@ clearButton.addEventListener("click", () => {
   undo.className = "text-button";
   undo.textContent = "Undo";
   undo.addEventListener("click", () => {
-    saved[target.id] = previous;
+    target.forEach((card, index) => { saved[card.id] = previous[index]; });
     save();
     setStatus("");
-    if (target === card) render();
+    if (target === shown) render();
   });
-  setStatus("Card cleared. ");
+  setStatus(target.length > 1 ? "Cards cleared. " : "Card cleared. ");
   status.append(undo);
 });
 
 copyButton.addEventListener("click", async () => {
-  const markdown = toMarkdown(items());
+  const filled = shown.filter(hasItems);
+  // Each card's list under its name, so they can be posted separately.
+  const markdown = filled.map((card) => `${filled.length > 1 ? `**${card.name}**\n` : ""}${toMarkdown(saved[card.id])}`).join("\n\n");
+  const file = `${fileSlug(shown[0].event)}.md`;
   try {
     await navigator.clipboard.writeText(markdown);
     setStatus("Markdown copied.", "success");
   } catch {
-    saveBlob(new Blob([markdown], { type: "text/markdown" }), `${fileSlug()}.md`);
-    setStatus(`Clipboard blocked, saved ${fileSlug()}.md instead.`);
+    saveBlob(new Blob([markdown], { type: "text/markdown" }), file);
+    setStatus(`Clipboard blocked, saved ${file} instead.`);
   }
   play("copy");
 });
 
-downloadButton.addEventListener("click", downloadCard);
+downloadButton.addEventListener("click", downloadCards);
 
 renderSound();
-openCard(card);
+const lastEvent = localStorage.getItem("bingo-event");
+openEvent(lastEvent && eventCards(lastEvent).length ? lastEvent : currentEvent);
 save();

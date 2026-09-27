@@ -77,3 +77,15 @@ export function describeTags(tags: string[]): { type: string; extra: string[] } 
     extra: tags.filter((tag) => !classes.includes(tag) && !itemTypes.includes(tag) && tag !== "Certified Compatible"),
   };
 }
+
+export type Kind = "War Paint" | "Unusual Effect" | "Taunt" | "Cosmetic" | "Map";
+
+/** The kind of bingo square an item belongs in, from its Workshop tags. Weapons and untagged oddities have none. */
+export function itemKind(tags: string[]): Kind | undefined {
+  const type = itemTypes.find((name) => tags.includes(name));
+  if (type === "Unusual Effect" || type === "War Paint" || type === "Taunt") return type;
+  if (type === "Headgear" || type === "Misc") return "Cosmetic";
+  // Maps have a game mode tag ("King of the Hill"), or sometimes only "Halloween": never an item type or a class.
+  if (!type && !classes.some((name) => tags.includes(name))) return "Map";
+  return undefined;
+}

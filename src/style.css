@@ -39,7 +39,7 @@ button, .wordmark, .panel-title, .count, .item-row, .poster-stage { -webkit-user
 button img { pointer-events: none; }
 [hidden] { display: none !important; }
 
-/* Main menu layout (mainmenuoverride.res): the menu column on the left (TF2 anchors it at c-290), the card
+/* Main menu layout (mainmenuoverride.res): the menu column on the left (TF2 anchors it at c-290), the cards
    filling the rest, and the footer strip across the bottom. The page never scrolls; the item list does. */
 .app-shell {
   --pad: clamp(16px, 5vw, 96px);
@@ -77,7 +77,7 @@ button img { pointer-events: none; }
 }
 .panel-title { display: flex; align-items: center; gap: 6px; min-height: 34px; }
 .panel-title h2 { margin: 0 auto 0 0; color: #ebe3cb; font: 15px "TF2 Build", sans-serif; text-transform: uppercase; }
-.poster-toggle { display: grid; grid-auto-columns: 1fr; grid-auto-flow: column; gap: 5px; }
+.menu-panel:has(> .panel-title:only-child) { padding-bottom: 0; }
 
 /* Main menu buttons: a 14px glyph at the left and the text inset 25 (SubButton / SubImage). */
 .tf-button.menu-button { justify-content: flex-start; gap: 10px; min-height: 40px; padding: 2px 8px; font-size: 14px; }
@@ -157,7 +157,15 @@ button img { pointer-events: none; }
   /* The list sits in an InnerShadowBorder well, like the main menu's friends list. */
   border: 8px solid transparent;
   border-image: url("/ui/innershadow_border.png") 23 fill / 8px;
-  scrollbar-color: #625a50 transparent;
+}
+/* A slim thumb instead of the 15px system scrollbar, so the rows keep their width. Chromium ignores these
+   pseudo-elements once scrollbar-width or scrollbar-color is set, so those are only for Firefox. */
+.item-list::-webkit-scrollbar { width: 6px; }
+.item-list::-webkit-scrollbar-button { display: none; }
+.item-list::-webkit-scrollbar-thumb { background: #625a50; border-radius: 3px; }
+.item-list::-webkit-scrollbar-thumb:hover { background: #8f8372; }
+@supports not selector(::-webkit-scrollbar) {
+  .item-list { scrollbar-width: thin; scrollbar-color: #625a50 transparent; }
 }
 /* Item panels use the backpack borders from clientscheme.res: 24px source corners drawn at ~8-11px. */
 .item-row {
@@ -178,6 +186,8 @@ button img { pointer-events: none; }
 .item-row strong { font: 11px/1.2 "TF2 Build", sans-serif; }
 .item-row span { color: var(--tan-muted); font-size: 11px; }
 .item-row span:empty { display: none; }
+.list-heading { padding: 4px 2px 0; color: var(--tan-muted); font: 11px "TF2 Build", sans-serif; letter-spacing: .04em; text-transform: uppercase; }
+.list-heading:not(:first-child) { padding-top: 8px; }
 .item-row a:hover strong { color: var(--gold); }
 .remove-button { display: grid; place-items: center; width: 24px; height: 24px; padding: 0; background: none; border: 0; border-radius: 3px; opacity: .5; }
 .remove-button img { width: 12px; height: 12px; }
@@ -189,13 +199,22 @@ button img { pointer-events: none; }
 .count { color: var(--tan-muted); font: 13px "TF2 Build", sans-serif; }
 .count b { color: #efb471; font-weight: 400; }
 
-/* Board */
-.board { display: flex; justify-content: center; align-items: center; min-width: 0; min-height: 0; padding-bottom: 16px; }
+/* Board: the event's cards side by side (--cards of them), each as large as the width and height allow. */
+.board {
+  --gap: clamp(12px, 1.6vw, 28px);
+  display: flex;
+  justify-content: center;
+  align-items: center;
+  gap: var(--gap);
+  min-width: 0;
+  min-height: 0;
+  padding-bottom: 16px;
+}
 .poster-stage {
   position: relative;
-  /* Fit the whole card in the space left by the page padding and the footer strip. */
-  width: min(100%, calc((max(100vh, 600px) - 104px) * var(--ratio, 0.876)));
-  min-width: 300px;
+  flex: none;
+  /* Fit the whole card in its share of the width, and in the height left by the page padding and footer strip. */
+  width: min((100% - (var(--cards, 1) - 1) * var(--gap)) / var(--cards, 1), (max(100vh, 600px) - 104px) * var(--ratio, 0.876));
   aspect-ratio: var(--ratio, 0.876);
   box-shadow: 0 5px 22px rgb(0 0 0 / 42%);
 }
@@ -239,23 +258,25 @@ body.is-dragging, body.is-dragging * { cursor: grabbing !important; user-select:
 }
 .archive-panel:popover-open { display: flex; flex-direction: column; gap: 16px; }
 .archive-panel::backdrop { background: rgb(0 0 0 / 45%); }
-.archive-panel h2 { margin: 0 0 8px; color: var(--tan-muted); font: 13px "TF2 Build", sans-serif; letter-spacing: .04em; text-transform: uppercase; }
-.archive-cards { display: grid; grid-template-columns: repeat(auto-fill, minmax(140px, 1fr)); gap: 8px; }
-.archive-card {
+/* One backpack panel per event: its cards side by side, then the name and filled count. The open event gets the
+   mouseover border, like the equipped item in a loadout. */
+.archive-event {
   display: flex;
   flex-direction: column;
-  gap: 6px;
+  gap: 8px;
   padding: 0;
   color: var(--tan);
   background: none;
   border: 10px solid transparent;
   border-image: url("/ui/backpack/rect.png") 24 fill / 10px;
-  font: 11px "TF2 Build", sans-serif;
-  text-transform: uppercase;
+  text-align: left;
 }
-.archive-card:hover { border-image-source: url("/ui/backpack/rect_mouseover.png"); }
-.archive-card[aria-pressed="true"] { color: var(--ink); border-image-source: url("/ui/backpack/rect_selected.png"); }
-.archive-card img { display: block; width: 100%; aspect-ratio: 3448 / 3936; object-fit: cover; border-radius: 2px; }
+.archive-event:hover, .archive-event[aria-current="true"] { border-image-source: url("/ui/backpack/rect_mouseover.png"); }
+.archive-posters { display: flex; gap: 6px; }
+.archive-posters .poster-stage { flex: 1 1 0; width: auto; min-width: 0; box-shadow: 0 2px 8px rgb(0 0 0 / 40%); }
+.archive-posters .bingo-grid img { position: absolute; object-fit: cover; }
+.archive-caption { display: flex; align-items: baseline; gap: 8px; }
+.archive-caption strong { margin-right: auto; font: 14px "TF2 Build", sans-serif; font-weight: 400; text-transform: uppercase; }
 
 /* Item tooltip: LoadoutItemPopupBorder (button_holder_central) with the ItemFont and ItemAttrib colours. */
 .item-tooltip {
@@ -297,11 +318,13 @@ body.is-dragging, body.is-dragging * { cursor: grabbing !important; user-select:
 .site-foot a { color: var(--tan); }
 .site-foot a:hover { color: var(--gold); }
 
-@media (max-width: 860px) {
+/* Too narrow for the menu column beside the cards: stack everything, cards one under another. */
+@media (max-width: 1000px) {
   .app-shell { --pad: 10px; grid-template-columns: 1fr; grid-template-rows: none; height: auto; }
   .wordmark { font-size: 40px; }
   .item-list { max-height: 40vh; }
-  .poster-stage { width: 100%; min-width: 0; }
+  .board { flex-direction: column; }
+  .poster-stage { width: min(100%, 720px); }
 }
 
 @media (prefers-reduced-motion: reduce) {
