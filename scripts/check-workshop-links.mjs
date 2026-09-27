@@ -1,5 +1,7 @@
 import assert from "node:assert/strict";
 import { describeTags, itemKind, parseWorkshopLinks, toMarkdown } from "../src/steam/workshop.ts";
+// Loading the registry validates every card's squares and IDs.
+import "../src/data/cards.ts";
 
 assert.deepEqual(
   parseWorkshopLinks([
