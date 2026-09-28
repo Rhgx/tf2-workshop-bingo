@@ -9,8 +9,14 @@ assert.deepEqual(
     "https://www.steamcommunity.com/sharedfiles/filedetails/?searchtext=hat&id=202",
     "https://steamcommunity.com/sharedfiles/filedetails/?id=101",
     "https://example.com/sharedfiles/filedetails/?id=303",
+    "https://fixsteamcommunity.com/sharedfiles/filedetails/?id=3808168316&tscn=1790406489",
+    "http://m.steamcommunity.com/workshop/filedetails/?id=404",
+    "(steamcommunity.com/sharedfiles/filedetails?id=505).",
+    "steam://url/CommunityFilePage/606",
+    "steam://openurl/https://steamcommunity.com/sharedfiles/filedetails/?id=707",
+    "ftp://steamcommunity.com/sharedfiles/filedetails/?id=808",
   ].join("\n")),
-  { ids: ["101", "202"], duplicates: 1, invalid: 1 },
+  { ids: ["101", "202", "3808168316", "404", "505", "606", "707"], duplicates: 1, invalid: 2 },
 );
 
 assert.equal(

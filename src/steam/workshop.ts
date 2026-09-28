@@ -22,13 +22,20 @@ export function parseWorkshopLinks(text: string): ParsedLinks {
   let invalid = 0;
 
   for (const token of text.split(/[\s,;]+/).filter(Boolean)) {
-    const candidate = token.replace(/^[([{<]+/, "").replace(/[)\]}>.,;]+$/, "");
+    const candidate = token
+      .replace(/^[([{<]+/, "")
+      .replace(/[)\]}>.,;]+$/, "")
+      .replace(/^steam:\/\/openurl\//i, "")
+      .replace(/^steam:\/\/url\/CommunityFilePage\/(\d+)$/i, "https://steamcommunity.com/sharedfiles/filedetails/?id=$1");
     try {
-      const url = new URL(candidate);
+      // Links pasted without a scheme ("steamcommunity.com/sharedfiles/...") still count.
+      const url = new URL(/^[a-z][\w+.-]*:\/\//i.test(candidate) ? candidate : `https://${candidate}`);
       const path = url.pathname.toLowerCase().replace(/\/+$/, "");
+      // Covers www., m., and embed fixers like fixsteamcommunity.com; only the ID is used, so any lookalike host is harmless.
       const isWorkshopPage =
-        ["steamcommunity.com", "www.steamcommunity.com"].includes(url.hostname.toLowerCase()) &&
-        path === "/sharedfiles/filedetails";
+        /^https?:$/.test(url.protocol) &&
+        url.hostname.toLowerCase().endsWith("steamcommunity.com") &&
+        ["/sharedfiles/filedetails", "/workshop/filedetails"].includes(path);
       const id = url.searchParams.get("id");
       if (!isWorkshopPage || !id || !/^\d{1,20}$/.test(id)) {
         invalid++;
